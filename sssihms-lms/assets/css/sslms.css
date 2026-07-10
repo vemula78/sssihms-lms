@@ -1,0 +1,82 @@
+/* SSSIHMS LMS — mobile-first learner portal (SSSIHMS brand: white, Playfair/Lato). */
+.sslms {
+	--ss-ink: #2b2b2b;
+	--ss-accent: #8a6d3b;
+	--ss-accent-dark: #6d5528;
+	--ss-line: #e4ddd0;
+	--ss-bg: #ffffff;
+	--ss-soft: #faf8f4;
+	--ss-ok: #2e7d32;
+	--ss-warn: #b26a00;
+	--ss-bad: #c62828;
+	font-family: 'Lato', 'Helvetica Neue', Arial, sans-serif;
+	color: var(--ss-ink);
+	background: var(--ss-bg);
+	max-width: 960px;
+	margin: 0 auto;
+	padding: 0 12px 32px;
+	line-height: 1.55;
+	font-size: 16px;
+}
+.sslms h1, .sslms h2, .sslms h3 { font-family: 'Playfair Display', Georgia, serif; font-weight: 600; color: var(--ss-ink); }
+.sslms-title { font-size: 1.5rem; margin: 14px 0 10px; }
+.sslms-nav { display: flex; gap: 4px; overflow-x: auto; -webkit-overflow-scrolling: touch; border-bottom: 2px solid var(--ss-line); padding: 8px 0; position: sticky; top: 0; background: var(--ss-bg); z-index: 5; }
+.sslms-nav a { white-space: nowrap; padding: 8px 12px; border-radius: 18px; text-decoration: none; color: var(--ss-accent-dark); font-weight: 700; font-size: 0.95rem; }
+.sslms-nav a:hover, .sslms-nav a:focus { background: var(--ss-soft); }
+.sslms-footer { margin-top: 40px; border-top: 1px solid var(--ss-line); padding-top: 10px; font-size: 0.8rem; color: #8a8a8a; text-align: center; }
+
+.sslms-cards { display: grid; grid-template-columns: 1fr; gap: 14px; }
+.sslms-card { border: 1px solid var(--ss-line); border-radius: 10px; padding: 14px 16px; background: var(--ss-soft); }
+.sslms-card h2 { font-size: 1.1rem; margin: 0 0 8px; }
+
+.sslms table { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
+.sslms th, .sslms td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--ss-line); vertical-align: top; }
+.sslms .sslms-table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+.sslms-btn, .sslms button.sslms-btn, .sslms a.sslms-btn {
+	display: inline-block; background: var(--ss-accent); color: #fff; border: 0; border-radius: 6px;
+	padding: 10px 18px; font-size: 1rem; font-weight: 700; cursor: pointer; text-decoration: none;
+	min-height: 44px; /* touch target */
+}
+.sslms-btn:hover, .sslms-btn:focus { background: var(--ss-accent-dark); color: #fff; }
+.sslms-btn--ghost { background: transparent; color: var(--ss-accent-dark); border: 1px solid var(--ss-accent); }
+.sslms-btn--danger { background: var(--ss-bad); }
+
+.sslms input[type=text], .sslms input[type=date], .sslms input[type=number], .sslms input[type=file],
+.sslms select, .sslms textarea {
+	width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid var(--ss-line);
+	border-radius: 6px; font-size: 1rem; font-family: inherit; background: #fff;
+}
+.sslms label { display: block; font-weight: 700; margin: 12px 0 4px; }
+.sslms fieldset { border: 1px solid var(--ss-line); border-radius: 8px; margin: 0 0 14px; padding: 10px 14px; }
+
+.sslms-badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 700; }
+.sslms-badge--ok { background: #e6f2e6; color: var(--ss-ok); }
+.sslms-badge--warn { background: #fdf1dd; color: var(--ss-warn); }
+.sslms-badge--bad { background: #fdeaea; color: var(--ss-bad); }
+.sslms-badge--muted { background: #eee; color: #666; }
+
+.sslms-alert { border-left: 4px solid var(--ss-warn); background: #fdf6ea; padding: 10px 14px; border-radius: 0 8px 8px 0; margin: 10px 0; }
+.sslms-alert--error { border-color: var(--ss-bad); background: #fdeeee; }
+.sslms-consent { border: 1px solid var(--ss-accent); background: var(--ss-soft); border-radius: 10px; padding: 12px 16px; margin: 12px 0; }
+
+.sslms-progressbar { background: var(--ss-line); border-radius: 8px; height: 12px; overflow: hidden; }
+.sslms-progressbar > span { display: block; height: 100%; background: var(--ss-accent); }
+
+.sslms-quiz-option { display: flex; gap: 10px; align-items: flex-start; padding: 12px; border: 1px solid var(--ss-line); border-radius: 8px; margin: 8px 0; background: #fff; }
+.sslms-quiz-option input { width: auto; margin-top: 3px; }
+
+@media (min-width: 700px) {
+	.sslms-cards { grid-template-columns: 1fr 1fr; }
+	.sslms-title { font-size: 1.9rem; }
+}
+
+/* Certificate print view */
+.sslms-certificate { border: 6px double var(--ss-accent); padding: 40px; text-align: center; background: #fff; }
+.sslms-certificate h1 { font-size: 2rem; }
+.sslms-certificate .sslms-cert-name { font-size: 1.6rem; font-family: 'Playfair Display', Georgia, serif; margin: 16px 0; }
+@media print {
+	body * { visibility: hidden; }
+	.sslms-certificate, .sslms-certificate * { visibility: visible; }
+	.sslms-certificate { position: absolute; inset: 0; border-width: 6px; }
+}
