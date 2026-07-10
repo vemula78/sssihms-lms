@@ -445,14 +445,34 @@ class SSLMS_REST_Quizzes extends SSLMS_REST_Base {
 	 * Quiz handlers.
 	 * ------------------------------------------------------------------ */
 
+	/**
+	 * Instructors may only touch quizzes of courses they created (mirrors
+	 * SSLMS_REST_Courses::forbidden_unless_owner); sslms_manage bypasses.
+	 */
+	private static function forbidden_unless_course_owner( int $course_id ) {
+		if ( current_user_can( 'sslms_manage' ) || SSLMS_Courses::can_edit( $course_id, get_current_user_id() ) ) {
+			return null;
+		}
+		return self::fail( 'sslms_forbidden', 'You may only manage quizzes for courses you created.', 403 );
+	}
+
 	public static function list_quizzes( WP_REST_Request $req ) {
 		global $wpdb;
 		$quizzes_t = SSLMS_DB::table( 'quizzes' );
 		$courses_t = SSLMS_DB::table( 'courses' );
-		$rows      = $wpdb->get_results(
-			"SELECT z.*, c.title AS course_title FROM {$quizzes_t} z
-			 LEFT JOIN {$courses_t} c ON c.id = z.course_id ORDER BY z.id DESC"
-		);
+		if ( current_user_can( 'sslms_manage' ) ) {
+			$rows = $wpdb->get_results(
+				"SELECT z.*, c.title AS course_title FROM {$quizzes_t} z
+				 LEFT JOIN {$courses_t} c ON c.id = z.course_id ORDER BY z.id DESC"
+			);
+		} else {
+			$rows = $wpdb->get_results( $wpdb->prepare(
+				"SELECT z.*, c.title AS course_title FROM {$quizzes_t} z
+				 INNER JOIN {$courses_t} c ON c.id = z.course_id
+				 WHERE c.created_by = %d ORDER BY z.id DESC",
+				get_current_user_id()
+			) );
+		}
 		return self::ok( $rows );
 	}
 
@@ -461,6 +481,10 @@ class SSLMS_REST_Quizzes extends SSLMS_REST_Base {
 		if ( ! $quiz ) {
 			return self::fail( 'sslms_no_quiz', 'Quiz not found.', 404 );
 		}
+		$forbidden = self::forbidden_unless_course_owner( (int) $quiz->course_id );
+		if ( $forbidden ) {
+			return $forbidden;
+		}
 		return self::ok( $quiz );
 	}
 
@@ -468,6 +492,10 @@ class SSLMS_REST_Quizzes extends SSLMS_REST_Base {
 		$payload = self::normalize_quiz_payload( $req );
 		if ( is_wp_error( $payload ) ) {
 			return $payload;
+		}
+		$forbidden = self::forbidden_unless_course_owner( (int) $payload['course_id'] );
+		if ( $forbidden ) {
+			return $forbidden;
 		}
 		$id = SSLMS_DB::insert( 'quizzes', $payload );
 		if ( ! $id ) {
@@ -478,13 +506,22 @@ class SSLMS_REST_Quizzes extends SSLMS_REST_Base {
 	}
 
 	public static function update_quiz( WP_REST_Request $req ) {
-		$id = (int) $req->get_param( 'id' );
-		if ( ! SSLMS_Quizzes::get_quiz( $id ) ) {
+		$id   = (int) $req->get_param( 'id' );
+		$quiz = SSLMS_Quizzes::get_quiz( $id );
+		if ( ! $quiz ) {
 			return self::fail( 'sslms_no_quiz', 'Quiz not found.', 404 );
+		}
+		$forbidden = self::forbidden_unless_course_owner( (int) $quiz->course_id );
+		if ( $forbidden ) {
+			return $forbidden;
 		}
 		$payload = self::normalize_quiz_payload( $req );
 		if ( is_wp_error( $payload ) ) {
 			return $payload;
+		}
+		$forbidden = self::forbidden_unless_course_owner( (int) $payload['course_id'] );
+		if ( $forbidden ) {
+			return $forbidden;
 		}
 		SSLMS_DB::update( 'quizzes', $payload, array( 'id' => $id ) );
 		SSLMS_Audit::log( 'quiz_updated', 'quiz', $id, 'Quiz updated' );
@@ -492,9 +529,14 @@ class SSLMS_REST_Quizzes extends SSLMS_REST_Base {
 	}
 
 	public static function delete_quiz( WP_REST_Request $req ) {
-		$id = (int) $req->get_param( 'id' );
-		if ( ! SSLMS_Quizzes::get_quiz( $id ) ) {
+		$id   = (int) $req->get_param( 'id' );
+		$quiz = SSLMS_Quizzes::get_quiz( $id );
+		if ( ! $quiz ) {
 			return self::fail( 'sslms_no_quiz', 'Quiz not found.', 404 );
+		}
+		$forbidden = self::forbidden_unless_course_owner( (int) $quiz->course_id );
+		if ( $forbidden ) {
+			return $forbidden;
 		}
 		if ( SSLMS_Quizzes::quiz_has_attempts( $id ) ) {
 			return self::fail( 'sslms_quiz_has_attempts', 'This quiz has recorded attempts and cannot be deleted (NABH audit trail).', 409 );

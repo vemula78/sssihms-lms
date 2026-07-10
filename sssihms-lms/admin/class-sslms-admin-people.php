@@ -185,7 +185,7 @@ class SSLMS_Admin_People {
 
 		$learners    = self::users_with_cap( 'sslms_learn' );
 		$mentors     = self::users_with_cap( 'sslms_mentor_journals' );
-		$preceptors  = self::users_with_any_cap( array( 'sslms_approve_hours', 'sslms_signoff_checklists' ) );
+		$preceptors  = self::users_with_any_cap( array( 'sslms_approve_hours' ) );
 		$evaluators  = self::users_with_cap( 'sslms_signoff_checklists' );
 
 		echo '<h3>' . esc_html__( 'Add relationship', 'sssihms-lms' ) . '</h3>';

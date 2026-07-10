@@ -154,6 +154,7 @@ class SSLMS_Enrollments {
 			 FROM {$enr_t} e
 			 INNER JOIN {$course_t} c ON c.id = e.course_id
 			 WHERE e.user_id = %d AND e.status IN ('active','completed')
+			   AND c.status = 'published'
 			 ORDER BY e.enrolled_at DESC",
 			$user_id
 		) );

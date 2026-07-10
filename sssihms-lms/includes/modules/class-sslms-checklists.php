@@ -55,7 +55,11 @@ class SSLMS_Checklists {
 		if ( ! $data ) {
 			return false;
 		}
-		return SSLMS_DB::update( 'checklists', $data, array( 'id' => $id ) );
+		$ok = SSLMS_DB::update( 'checklists', $data, array( 'id' => $id ) );
+		if ( $ok ) {
+			SSLMS_Audit::log( 'checklist_updated', 'checklist', $id, 'Fields: ' . implode( ',', array_keys( $data ) ) );
+		}
+		return $ok;
 	}
 
 	/**
@@ -72,7 +76,11 @@ class SSLMS_Checklists {
 		}
 		$it = SSLMS_DB::table( 'checklist_items' );
 		$wpdb->delete( $it, array( 'checklist_id' => $id ) );
-		return SSLMS_DB::delete( 'checklists', array( 'id' => $id ) );
+		$ok = SSLMS_DB::delete( 'checklists', array( 'id' => $id ) );
+		if ( $ok ) {
+			SSLMS_Audit::log( 'checklist_deleted', 'checklist', $id, 'Unused template deleted' );
+		}
+		return $ok;
 	}
 
 	/* ---------------------------------------------------------------
@@ -116,11 +124,18 @@ class SSLMS_Checklists {
 		return SSLMS_DB::update( 'checklist_items', $data, array( 'id' => $item_id ) );
 	}
 
-	public static function delete_item( int $item_id ): bool {
+	public static function delete_item( int $item_id ) {
 		global $wpdb;
-		$so = SSLMS_DB::table( 'checklist_signoffs' );
-		$wpdb->delete( $so, array( 'item_id' => $item_id ) );
-		return SSLMS_DB::delete( 'checklist_items', array( 'id' => $item_id ) );
+		$so   = SSLMS_DB::table( 'checklist_signoffs' );
+		$used = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$so} WHERE item_id = %d", $item_id ) );
+		if ( $used > 0 ) {
+			return new WP_Error( 'sslms_item_has_signoffs', 'This item has recorded sign-offs and cannot be deleted (NABH retention). Edit its text instead.' );
+		}
+		$ok = SSLMS_DB::delete( 'checklist_items', array( 'id' => $item_id ) );
+		if ( $ok ) {
+			SSLMS_Audit::log( 'checklist_item_deleted', 'checklist_item', $item_id, 'Checklist item deleted' );
+		}
+		return $ok;
 	}
 
 	/** Reorder: $ordered_item_ids = item ids of one checklist, in the new order. */

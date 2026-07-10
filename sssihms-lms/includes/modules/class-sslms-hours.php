@@ -29,6 +29,9 @@ class SSLMS_Hours {
 		if ( strtotime( $end_date ) < strtotime( $start_date ) ) {
 			return new WP_Error( 'sslms_invalid_dates', 'End date cannot be before start date.' );
 		}
+		if ( $preceptor_id === $user_id ) {
+			return new WP_Error( 'sslms_self_preceptor', 'A learner cannot be their own preceptor.' );
+		}
 		$id = SSLMS_DB::insert( 'rotations', array(
 			'user_id'        => $user_id,
 			'department'     => $department,
@@ -60,14 +63,32 @@ class SSLMS_Hours {
 		if ( ! $data ) {
 			return false;
 		}
-		return SSLMS_DB::update( 'rotations', $data, array( 'id' => $id ) );
+		$rotation = self::get_rotation( $id );
+		if ( $rotation ) {
+			$new_preceptor = array_key_exists( 'preceptor_id', $data ) ? (int) $data['preceptor_id'] : (int) $rotation->preceptor_id;
+			if ( $new_preceptor === (int) $rotation->user_id ) {
+				return false; // A learner cannot be their own preceptor.
+			}
+		}
+		$ok = SSLMS_DB::update( 'rotations', $data, array( 'id' => $id ) );
+		if ( $ok ) {
+			SSLMS_Audit::log( 'rotation_updated', 'rotation', $id, 'Fields: ' . implode( ',', array_keys( $data ) ) );
+		}
+		return $ok;
 	}
 
-	public static function delete_rotation( int $id ): bool {
+	public static function delete_rotation( int $id ) {
 		global $wpdb;
-		$hl = SSLMS_DB::table( 'hour_logs' );
-		$wpdb->delete( $hl, array( 'rotation_id' => $id ) );
-		return SSLMS_DB::delete( 'rotations', array( 'id' => $id ) );
+		$hl   = SSLMS_DB::table( 'hour_logs' );
+		$logs = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$hl} WHERE rotation_id = %d", $id ) );
+		if ( $logs > 0 ) {
+			return new WP_Error( 'sslms_rotation_has_logs', 'This rotation has hour logs and cannot be deleted (NABH retention).' );
+		}
+		$ok = SSLMS_DB::delete( 'rotations', array( 'id' => $id ) );
+		if ( $ok ) {
+			SSLMS_Audit::log( 'rotation_deleted', 'rotation', $id, 'Rotation deleted (no logs)' );
+		}
+		return $ok;
 	}
 
 	public static function list_rotations( array $args = array() ): array {

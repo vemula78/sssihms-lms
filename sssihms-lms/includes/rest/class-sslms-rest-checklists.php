@@ -257,7 +257,11 @@ class SSLMS_REST_Checklists extends SSLMS_REST_Base {
 	}
 
 	public static function delete_item( WP_REST_Request $req ) {
-		SSLMS_Checklists::delete_item( (int) $req['item_id'] );
+		$result = SSLMS_Checklists::delete_item( (int) $req['item_id'] );
+		if ( is_wp_error( $result ) ) {
+			$result->add_data( array( 'status' => 409 ) );
+			return $result;
+		}
 		return self::ok( array( 'deleted' => true ) );
 	}
 

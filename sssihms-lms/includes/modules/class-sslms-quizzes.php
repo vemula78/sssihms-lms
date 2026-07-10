@@ -175,6 +175,10 @@ class SSLMS_Quizzes {
 		if ( ! class_exists( 'SSLMS_Enrollments' ) || ! SSLMS_Enrollments::is_enrolled( (int) $quiz->course_id, $user_id ) ) {
 			return new WP_Error( 'sslms_not_enrolled', 'You must be enrolled in this course to take the quiz.', array( 'status' => 403 ) );
 		}
+		$course = class_exists( 'SSLMS_Courses' ) ? SSLMS_Courses::get( (int) $quiz->course_id ) : null;
+		if ( ! $course || 'published' !== $course->status ) {
+			return new WP_Error( 'sslms_course_unavailable', 'This course is not currently available.', array( 'status' => 403 ) );
+		}
 
 		// Resume an already-open attempt rather than starting a second one.
 		$open = self::open_attempt( $quiz_id, $user_id );

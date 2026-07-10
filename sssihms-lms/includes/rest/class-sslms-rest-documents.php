@@ -64,7 +64,9 @@ class SSLMS_REST_Documents extends SSLMS_REST_Base {
 		register_rest_route( self::NS, '/documents/compliance', array(
 			'methods'             => 'GET',
 			'callback'            => array( __CLASS__, 'compliance' ),
-			'permission_callback' => self::can_any( array( 'sslms_manage', 'sslms_view_reports' ) ),
+			// sslms_manage only: the matrix covers every learner's credential
+			// status, which must not be visible to unscoped instructors (DPDP).
+			'permission_callback' => self::can( 'sslms_manage' ),
 		) );
 
 		register_rest_route( self::NS, '/documents/(?P<id>\d+)', array(

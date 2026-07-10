@@ -164,7 +164,7 @@ class SSLMS_Documents {
 			return 'no-expiry';
 		}
 		$expiry = strtotime( $doc->expiry_date );
-		$today  = strtotime( 'today' );
+		$today  = strtotime( current_time( 'Y-m-d' ) );
 		if ( false === $expiry ) {
 			return 'no-expiry';
 		}

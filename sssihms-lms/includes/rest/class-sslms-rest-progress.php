@@ -157,6 +157,9 @@ class SSLMS_REST_Progress extends SSLMS_REST_Base {
 		if ( ! $own && ! $manage ) {
 			$scope_course_ids = array_map( 'intval', SSLMS_Enrollments::instructor_course_ids( $viewer_id ) );
 			if ( ! $scope_course_ids ) {
+				if ( 'csv' === $request->get_param( 'format' ) ) {
+					self::send_csv( 'transcript.csv', array( 'Course', 'Track', 'Status', 'Progress %', 'Enrolled', 'Completed', 'Certificate' ), array() );
+				}
 				return self::ok( array() );
 			}
 		}

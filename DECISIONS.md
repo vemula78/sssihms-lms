@@ -32,3 +32,23 @@
 - **Roles**: five new WP roles (sslms_student, sslms_instructor, sslms_preceptor,
   sslms_evaluator, sslms_mentor); WP administrator gets all LMS caps. Multi-role users
   supported via WP's multiple-role capability grants.
+
+## Post-verification decisions (10-Jul-2026, after 7-agent review + live smoke test)
+- **Quiz authoring scope**: quizzes follow course ownership (instructor edits only own
+  courses' quizzes; sslms_manage sees all). Question banks remain SHARED across
+  instructors by design (reusable per SPEC F3.1) — bank deletion is blocked while in use.
+- **Compliance matrix (F9.5)**: restricted to sslms_manage only. Instructors verifying an
+  individual document still stream it via F9.2, but cannot pull the hospital-wide
+  credential matrix (DPDP data minimisation).
+- **NABH retention guards**: checklist items with recorded sign-offs and rotations with
+  hour logs cannot be deleted; templates/rotations block deletion once history exists
+  (archive/deactivate instead). Template and rotation edits are audit-logged.
+- **Self-approval guard**: a rotation's preceptor can never be the learner themself
+  (enforced at create and update).
+- **Enrolling into a draft course is allowed** (roster prep before launch) but the course
+  is invisible to the learner everywhere until published; lesson completion and quiz
+  attempts require published status.
+- **Hour-log re-review is permitted** (a preceptor can correct a mistaken decision); every
+  decision is separately audit-logged, so the history is traceable.
+- **Preceptor relationship** requires the sslms_approve_hours capability specifically
+  (evaluator-only users no longer qualify as "preceptor").

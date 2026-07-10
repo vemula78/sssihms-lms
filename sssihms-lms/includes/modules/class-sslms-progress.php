@@ -123,6 +123,10 @@ class SSLMS_Progress {
 		if ( ! SSLMS_Enrollments::is_enrolled( $course_id, $user_id ) ) {
 			return new WP_Error( 'sslms_not_enrolled', 'You are not enrolled in this course.', array( 'status' => 403 ) );
 		}
+		$course = SSLMS_Courses::get( $course_id );
+		if ( ! $course || 'published' !== $course->status ) {
+			return new WP_Error( 'sslms_course_unavailable', 'This course is not currently available.', array( 'status' => 403 ) );
+		}
 
 		global $wpdb;
 		$t = SSLMS_DB::table( 'lesson_progress' );

@@ -227,7 +227,7 @@ class SSLMS_REST_People extends SSLMS_REST_Base {
 
 		$cap_by_type = array(
 			'mentor'    => array( 'sslms_mentor_journals' ),
-			'preceptor' => array( 'sslms_approve_hours', 'sslms_signoff_checklists' ),
+			'preceptor' => array( 'sslms_approve_hours' ),
 			'evaluator' => array( 'sslms_signoff_checklists' ),
 		);
 		$required = $cap_by_type[ $rel_type ] ?? array();

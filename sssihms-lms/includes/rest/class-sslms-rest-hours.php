@@ -212,7 +212,11 @@ class SSLMS_REST_Hours extends SSLMS_REST_Base {
 	}
 
 	public static function delete_rotation( WP_REST_Request $req ) {
-		SSLMS_Hours::delete_rotation( (int) $req['id'] );
+		$result = SSLMS_Hours::delete_rotation( (int) $req['id'] );
+		if ( is_wp_error( $result ) ) {
+			$result->add_data( array( 'status' => 409 ) );
+			return $result;
+		}
 		return self::ok( array( 'deleted' => true ) );
 	}
 

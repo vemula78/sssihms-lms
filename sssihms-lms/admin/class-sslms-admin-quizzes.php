@@ -285,11 +285,12 @@ class SSLMS_Admin_Quizzes {
 		$quizzes_t = SSLMS_DB::table( 'quizzes' );
 		$courses_t = SSLMS_DB::table( 'courses' );
 		$lessons_t = SSLMS_DB::table( 'lessons' );
-		$rows      = $wpdb->get_results(
+		$own  = current_user_can( 'sslms_manage' ) ? '' : $wpdb->prepare( ' WHERE c.created_by = %d', get_current_user_id() );
+		$rows = $wpdb->get_results(
 			"SELECT z.*, c.title AS course_title, l.title AS lesson_title FROM {$quizzes_t} z
 			 LEFT JOIN {$courses_t} c ON c.id = z.course_id
 			 LEFT JOIN {$lessons_t} l ON l.id = z.lesson_id
-			 ORDER BY z.id DESC"
+			 {$own} ORDER BY z.id DESC"
 		);
 
 		$new_url = add_query_arg( array( 'page' => self::SLUG, 'tab' => 'quizzes', 'new' => 1 ), admin_url( 'admin.php' ) );
@@ -345,7 +346,8 @@ class SSLMS_Admin_Quizzes {
 
 		global $wpdb;
 		$courses_t    = SSLMS_DB::table( 'courses' );
-		$courses      = $wpdb->get_results( "SELECT id, title FROM {$courses_t} WHERE status != 'archived' ORDER BY title ASC" );
+		$own          = current_user_can( 'sslms_manage' ) ? '' : $wpdb->prepare( ' AND created_by = %d', get_current_user_id() );
+		$courses      = $wpdb->get_results( "SELECT id, title FROM {$courses_t} WHERE status != 'archived'{$own} ORDER BY title ASC" );
 		$selected_course = isset( $_GET['course_id'] ) ? absint( $_GET['course_id'] ) : ( $quiz ? (int) $quiz->course_id : 0 ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 
 		// Course selector round-trips via GET so the lesson dropdown below can

@@ -84,9 +84,10 @@ class SSLMS_Portal_Hours {
 			$html  .= '<button type="submit" class="sslms-btn">Log hours</button>';
 			$html  .= '</form>';
 
-			if ( $r->logs ) {
+			$logs = SSLMS_Hours::logs_for_rotation( (int) $r->id );
+			if ( $logs ) {
 				$html .= '<div class="sslms-table-scroll"><table><thead><tr><th>Date</th><th>Hours</th><th>Activity</th><th>Status</th><th></th></tr></thead><tbody>';
-				foreach ( $r->logs as $log ) {
+				foreach ( $logs as $log ) {
 					$html .= '<tr><td>' . esc_html( SSLMS_DB::fmt_date( $log->log_date ) ) . '</td>'
 						. '<td>' . esc_html( $log->hours ) . '</td>'
 						. '<td>' . esc_html( $log->activity ) . '</td>'
