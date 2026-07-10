@@ -1,0 +1,9 @@
+/* SSSIHMS LMS — Module B quiz-taking UI additions. Builds on assets/css/sslms.css. */
+.sslms-quiz-card { border: 1px solid var(--ss-line, #e4ddd0); border-radius: 10px; padding: 14px 16px; margin: 14px 0; background: #fff; }
+.sslms-quiz-card h3 { margin: 0 0 6px; }
+.sslms-quiz-body { margin-top: 12px; }
+.sslms-quiz-timer { font-weight: 700; }
+.sslms-quiz-result { margin-top: 10px; }
+.sslms-quiz-form fieldset { margin-bottom: 14px; }
+.sslms-quiz-form legend { font-weight: 700; padding: 0 4px; }
+.sslms-course-quizzes, .sslms-lesson-quizzes { margin: 18px 0; }
