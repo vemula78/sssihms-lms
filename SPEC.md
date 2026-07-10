@@ -1,9 +1,12 @@
 # SSSIHMS Learning Management System — Functional Specification
 
-> **Provenance note:** The original SPEC.md referenced at project kickoff was not present in
-> this folder. This document was derived from the project owner's written scope decisions
-> (10-Jul-2026 kickoff message) plus defaults recorded in DECISIONS.md. If an original
-> SPEC.md surfaces, reconcile against it and update this file.
+> **Provenance note:** The original SPEC.md was not present in this folder at kickoff; this
+> document was derived from the project owner's written scope decisions (10-Jul-2026
+> kickoff message) plus defaults recorded in DECISIONS.md. The owner supplied the full
+> functional specification text later the same day; it is reconciled in **section 7
+> (traceability matrix)**. The owner's Phase-1 scope decisions take precedence: full-spec
+> items outside them are mapped to Phase 2 stubs or to the explicit backlog — nothing is
+> silently dropped.
 
 ## 1. Context
 
@@ -110,7 +113,7 @@ preceptor↔learner) are explicit records, not inferred.
 
 ### F9. Document uploads with expiry alerts
 - F9.1 Learners upload credential documents: license/registration, BLS/ACLS, immunization,
-  other. Fields: type, file (pdf/jpg/png ≤ 10 MB), issue date, expiry date.
+  background check, other. Fields: type, file (pdf/jpg/png ≤ 10 MB), issue date, expiry date.
 - F9.2 Files stored outside the public uploads URL space; served only via an
   access-controlled endpoint (owner, admin, and — for verification — instructors).
 - F9.3 Admin verifies documents (verified flag + who/when).
@@ -140,7 +143,7 @@ preceptor↔learner) are explicit records, not inferred.
 ## 5. Phase 2 — stub interfaces only (DO NOT implement)
 
 Define PHP interfaces + registration hooks, with no working implementation:
-- SCORM/xAPI package import & statement forwarding (`SSLMS_Scorm_Adapter_Interface`).
+- SCORM/xAPI/LTI package import & statement forwarding (`SSLMS_Scorm_Adapter_Interface`).
 - Zoom/Teams live-session integration (`SSLMS_Meeting_Provider_Interface`).
 - HR system sync — user provisioning/deactivation (`SSLMS_HR_Sync_Interface`).
 - Payments (`SSLMS_Payment_Gateway_Interface`) — placeholder only; not used in Phase 1.
@@ -158,3 +161,63 @@ Define PHP interfaces + registration hooks, with no working implementation:
 - **N4 Validation at system boundaries only**: REST input and file uploads. No speculative
   internal validation layers.
 - **N5 No feature creep**: nothing beyond this spec; Phase 2 is stubs only.
+
+## 7. Traceability — full specification vs this build
+
+Every item of the owner-supplied full specification, mapped. **P1** = implemented in this
+build (F-reference), **P2** = stub interface only per owner decision, **BL** = backlog:
+explicitly out of Phase 1 by the owner's scope decisions, listed here so it is a visible
+future decision, not an omission.
+
+### Core LMS
+| Spec item | Status |
+|---|---|
+| Roles: admin, instructor, student, supervisor/preceptor, evaluator (+ mentor/spiritual director) | P1 — F1 |
+| Course creation: modules, lessons, videos, PDFs | P1 — F2 (video URL/self-hosted, attachments incl. PDF) |
+| Quizzes | P1 — F3 |
+| Assignments (essay/file submissions, grading) | BL — not in Phase-1 scope decisions |
+| Mobile-friendly access on shifts/in field | P1 — F12, N-mobile-first |
+| Progress tracking & completion reports | P1 — F4 |
+| Certificates | P1 — F5 |
+| Continuing-education (CME/CNE) credit tracking | BL — certificates only in Phase 1; credit-hours ledger is a natural Phase-2+ extension of F5 |
+| Discussion forums, announcements, messaging | BL — omitted from Phase-1 list; journal comments (F8.3) provide the only in-scope dialogue channel |
+| Assessments: quizzes/exams, randomized, secure, question banks | P1 — F3 |
+| Case studies / case-based & simulation-based learning | P1 as content — authored as lessons (F2.3); no dedicated engine required |
+| Reflective journals | P1 — F8 |
+| Attendance & live-session tracking | P2/BL — live sessions depend on the Zoom/Teams stub; attendance registers deferred with them |
+| SCORM/xAPI/LTI | P2 — stub interface |
+| Secure login, audit logs, role-based permissions | P1 — WP auth + F10 + capability model (N1) |
+| Analytics dashboards (performance & compliance) | P1 — F11 |
+| Zoom/Teams, HR, payments integration | P2 — stub interfaces |
+| Email integration | P1 (wp_mail digests, F9.4); richer notifications BL |
+
+### Medical / nursing / allied health
+| Spec item | Status |
+|---|---|
+| Clinical competency tracking, skills checklists, preceptor evaluations | P1 — F6 |
+| OSCE-style assessment, rubrics for clinical performance | Partial P1 — 3-level rated checklists with evaluator/preceptor sign-off cover procedural competency; multi-criteria weighted rubrics & OSCE stations BL |
+| CME/CNE tracking | BL (above) |
+| License & certification renewal tracking | P1 — F9 expiry alerts |
+| HIPAA-aware design | N/A — India; DPDP 2023 applies (N2) |
+| Mandatory-module course areas (infection control, patient safety, etc.) | P1 as content — authored courses, not features |
+| Document uploads: licenses, immunizations, CPR/BLS/ACLS, background checks | P1 — F9 (doc types incl. background check) |
+| Rotation/placement tracking, clinical hours, procedure logs | P1 — F7 (hour logs carry an activity/procedure note; a structured procedure-log register is BL) |
+| Lab competency sign-offs, equipment training records | P1 via F6 — model as discipline-tagged checklists (e.g. "Ventilator competency") |
+| Supervisor feedback forms | Partial P1 — per-item sign-off notes (F6.2) + hour-log review notes (F7.3); standalone free-form evaluation forms BL |
+| Portfolio/evidence collection | BL |
+| Interprofessional education modules | P1 as content |
+| Compliance reports for accreditation | P1 — F4.3, F9.5, F10.3 CSV exports (NABH) |
+
+### Spiritual / chaplaincy
+| Spec item | Status |
+|---|---|
+| Formation course modules (theology, pastoral care, ethics…) | P1 as content — chaplaincy-track courses |
+| Reflection journals, private or instructor-reviewed | P1 — F8 (private / mentor / instructor visibility) |
+| Mentor/spiritual-director feedback | P1 — F8.3 comments |
+| Confidentiality controls for pastoral reflections | P1 — F8.2 (server-side gate, no admin content access) |
+| Discussion circles / cohort learning / community forums | BL (forums, above) |
+| Live prayer/group sessions | P2 — meeting-provider stub |
+| Reading assignments, sermon/reflection submissions, essays, oral assessment | Partial P1 — readings as lessons; reflective writing via journals; graded essay/oral submissions BL (assignments) |
+| Audio/video teaching library | P1 as content — lessons with media (F2.3) |
+| Certificate programs | P1 — F5 |
+| Service-hour / field-ministry tracking | P1 — F7 reused: create a rotation with department = ministry area (e.g. "Ward visits"); preceptor = supervising chaplain |
