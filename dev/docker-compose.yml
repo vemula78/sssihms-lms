@@ -1,0 +1,51 @@
+name: sslms-lms
+
+volumes:
+  sslms_dbdata:
+  sslms_wpdata:
+
+services:
+  db:
+    image: mariadb:11
+    volumes:
+      - sslms_dbdata:/var/lib/mysql
+    environment:
+      MARIADB_DATABASE: wordpress
+      MARIADB_USER: wp
+      MARIADB_PASSWORD: wp
+      MARIADB_ROOT_PASSWORD: root
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      retries: 20
+
+  wordpress:
+    image: wordpress:6.8-php8.3-apache
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8890:80"
+    environment:
+      WORDPRESS_DB_HOST: db
+      WORDPRESS_DB_USER: wp
+      WORDPRESS_DB_PASSWORD: wp
+      WORDPRESS_DB_NAME: wordpress
+    volumes:
+      - sslms_wpdata:/var/www/html
+      - ../sssihms-lms:/var/www/html/wp-content/plugins/sssihms-lms
+
+  cli:
+    image: wordpress:cli-php8.3
+    depends_on:
+      db:
+        condition: service_healthy
+    user: "33:33"
+    environment:
+      WORDPRESS_DB_HOST: db
+      WORDPRESS_DB_USER: wp
+      WORDPRESS_DB_PASSWORD: wp
+      WORDPRESS_DB_NAME: wordpress
+    volumes_from:
+      - wordpress
+    entrypoint: ["tail", "-f", "/dev/null"]
