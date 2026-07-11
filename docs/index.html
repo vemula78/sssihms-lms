@@ -1,0 +1,413 @@
+<meta charset="utf-8">
+<title>SSSIHMS LMS</title>
+<meta name="description" content="Learning Management System for SSSIHMS Whitefield — clinical, allied-health and chaplaincy education tracks.">
+<style>
+  :root{
+    --paper:#fdfcf8;
+    --paper-soft:#f6f2ea;
+    --ink:#2b2823;
+    --ink-soft:#6b6459;
+    --line:#e6ddc9;
+    --brass:#8a6d3b;
+    --brass-deep:#6d5528;
+    --clinical:#4a6d63;
+    --chaplaincy:#7d5a6e;
+    --allied:#4a5f7d;
+    --ok:#2e7d32;
+    --warn:#b26a00;
+    --radius:10px;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --paper:#1c1a17;
+      --paper-soft:#242019;
+      --ink:#ece7dc;
+      --ink-soft:#a89f8f;
+      --line:#3a3327;
+      --brass:#cba668;
+      --brass-deep:#e2c084;
+      --clinical:#7fa596;
+      --chaplaincy:#c497b4;
+      --allied:#8fa6c9;
+      --ok:#6fbf73;
+      --warn:#e0a032;
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper:#1c1a17; --paper-soft:#242019; --ink:#ece7dc; --ink-soft:#a89f8f;
+    --line:#3a3327; --brass:#cba668; --brass-deep:#e2c084;
+    --clinical:#7fa596; --chaplaincy:#c497b4; --allied:#8fa6c9; --ok:#6fbf73; --warn:#e0a032;
+  }
+  :root[data-theme="light"]{
+    --paper:#fdfcf8; --paper-soft:#f6f2ea; --ink:#2b2823; --ink-soft:#6b6459;
+    --line:#e6ddc9; --brass:#8a6d3b; --brass-deep:#6d5528;
+    --clinical:#4a6d63; --chaplaincy:#7d5a6e; --allied:#4a5f7d; --ok:#2e7d32; --warn:#b26a00;
+  }
+
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--paper); color:var(--ink);
+    font-family:Georgia,'Iowan Old Style','Palatino Linotype',Palatino,serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .sans{ font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif; }
+  .mono{ font-family:'SF Mono',ui-monospace,Menlo,Consolas,monospace; }
+
+  .wrap{ max-width:860px; margin:0 auto; padding:0 24px 80px; }
+
+  header.hero{
+    border-bottom:1px solid var(--line);
+    padding:56px 0 40px;
+    margin-bottom:48px;
+  }
+  .eyebrow{
+    font-family:inherit; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;
+    text-transform:uppercase; letter-spacing:.12em; font-size:12.5px; font-weight:600;
+    color:var(--brass-deep); margin:0 0 14px;
+  }
+  h1{
+    font-size:clamp(32px,5vw,46px); line-height:1.12; margin:0 0 16px; font-weight:400;
+    text-wrap:balance;
+  }
+  .lede{
+    font-size:19px; line-height:1.6; color:var(--ink-soft); max-width:62ch; margin:0;
+  }
+  .badges{ display:flex; gap:8px; flex-wrap:wrap; margin-top:24px; }
+  .badge{
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;
+    font-size:12px; font-weight:600; padding:5px 11px; border-radius:100px;
+    border:1px solid var(--line); color:var(--ink-soft); background:var(--paper-soft);
+  }
+
+  section{ margin:52px 0; }
+  h2{
+    font-size:13px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;
+    text-transform:uppercase; letter-spacing:.1em; font-weight:700; color:var(--ink-soft);
+    margin:0 0 20px; padding-bottom:10px; border-bottom:1px solid var(--line);
+  }
+  p{ line-height:1.68; font-size:16.5px; max-width:66ch; }
+  a{ color:var(--brass-deep); }
+  a:focus-visible, button:focus-visible{ outline:2px solid var(--brass); outline-offset:2px; }
+
+  /* Architecture diagram */
+  .diagram{ width:100%; height:auto; margin:8px 0 4px; }
+  .diagram text{ font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif; }
+  .diagram-caption{
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;
+    font-size:13px; color:var(--ink-soft); text-align:center; margin-top:6px;
+  }
+
+  /* Module grid */
+  .grid{
+    display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:14px;
+  }
+  .card{
+    border:1px solid var(--line); border-radius:var(--radius); padding:18px 20px;
+    background:var(--paper-soft);
+  }
+  .card .tag{
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;
+    font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.08em;
+    display:inline-block; padding:3px 9px; border-radius:100px; margin-bottom:10px;
+  }
+  .tag.core{ background:color-mix(in srgb, var(--brass) 18%, transparent); color:var(--brass-deep); }
+  .tag.clinical{ background:color-mix(in srgb, var(--clinical) 20%, transparent); color:var(--clinical); }
+  .tag.allied{ background:color-mix(in srgb, var(--allied) 20%, transparent); color:var(--allied); }
+  .tag.chaplaincy{ background:color-mix(in srgb, var(--chaplaincy) 20%, transparent); color:var(--chaplaincy); }
+  .card h3{
+    font-family:Georgia,serif; font-weight:400; font-size:18px; margin:0 0 8px;
+  }
+  .card p{ font-size:14.5px; margin:0; color:var(--ink-soft); line-height:1.55; }
+
+  /* Screens (illustrative, not screenshots) */
+  .screens{ display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+  @media (max-width:640px){ .screens{ grid-template-columns:1fr; } }
+  figure{ margin:0; }
+  figure .frame{
+    border:1px solid var(--line); border-radius:var(--radius); overflow:hidden;
+    background:var(--paper-soft);
+  }
+  figcaption{
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;
+    font-size:12.5px; color:var(--ink-soft); margin-top:8px; text-align:center;
+  }
+
+  /* Traceability table */
+  .table-scroll{ overflow-x:auto; border:1px solid var(--line); border-radius:var(--radius); }
+  table{ border-collapse:collapse; width:100%; font-size:14px; min-width:560px; }
+  th, td{ text-align:left; padding:10px 14px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th{
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;
+    font-size:11.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-soft);
+    background:var(--paper-soft);
+  }
+  tr:last-child td{ border-bottom:none; }
+  .pill{
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;
+    font-size:11px; font-weight:700; padding:2px 8px; border-radius:100px; white-space:nowrap;
+  }
+  .pill.p1{ background:color-mix(in srgb, var(--ok) 18%, transparent); color:var(--ok); }
+  .pill.p2{ background:color-mix(in srgb, var(--warn) 18%, transparent); color:var(--warn); }
+
+  .cta{
+    display:flex; gap:12px; flex-wrap:wrap; align-items:center;
+    border:1px solid var(--line); border-radius:var(--radius); padding:22px 24px;
+    background:var(--paper-soft);
+  }
+  .btn{
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;
+    display:inline-block; background:var(--brass); color:#fff; text-decoration:none;
+    font-weight:600; font-size:14.5px; padding:11px 20px; border-radius:8px;
+  }
+  .btn:hover{ background:var(--brass-deep); }
+  .btn.ghost{ background:transparent; color:var(--brass-deep); border:1px solid var(--brass); }
+
+  footer{
+    margin-top:64px; padding-top:20px; border-top:1px solid var(--line);
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;
+    font-size:13px; color:var(--ink-soft); display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px;
+  }
+
+  code{ font-family:'SF Mono',ui-monospace,Menlo,Consolas,monospace; font-size:0.9em; background:var(--paper-soft); padding:1px 5px; border-radius:4px; }
+</style>
+
+<div class="wrap">
+  <header class="hero">
+    <p class="eyebrow">Prototype &middot; not connected to hospital systems &middot; no patient data</p>
+    <h1>A learning system built around three kinds of formation, not one.</h1>
+    <p class="lede">
+      SSSIHMS LMS is a WordPress plugin for Sri Sathya Sai Institute of Higher Medical Sciences,
+      Whitefield — a charitable tertiary hospital where care is free. It carries clinical
+      competency tracking, allied-health practical evaluation, and chaplaincy formation
+      side by side, on infrastructure the hospital's small IT team already runs.
+    </p>
+    <div class="badges">
+      <span class="badge">PHP 8 / WordPress plugin</span>
+      <span class="badge">MySQL, 22 tables</span>
+      <span class="badge">DPDP Act 2023</span>
+      <span class="badge">NABH audit trail</span>
+      <span class="badge">Mobile-first</span>
+    </div>
+  </header>
+
+  <section>
+    <h2>Why a WordPress plugin</h2>
+    <p>
+      The hospital already operates WordPress and MySQL, and its IT team already maintains a
+      plugin of this shape. Building the LMS the same way means one deployment artifact, one
+      set of skills to keep it running, and no new server to patch — a deliberate trade of
+      architectural purity for a small charitable hospital's actual maintenance capacity.
+      Custom relational tables (not post-meta) keep NABH-grade rosters, transcripts, and
+      compliance exports a straightforward query rather than an EAV puzzle.
+    </p>
+  </section>
+
+  <section>
+    <h2>How it's assembled</h2>
+    <svg class="diagram" viewBox="0 0 820 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="diagram-title">
+      <title id="diagram-title">Plugin architecture: portal and admin surfaces call REST controllers, which call domain modules, which read and write custom database tables; an audit logger and capability layer sit alongside every module.</title>
+      <defs>
+        <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--ink-soft)"></path>
+        </marker>
+      </defs>
+      <style>
+        .box{ fill:var(--paper-soft); stroke:var(--line); stroke-width:1; }
+        .lbl{ font-size:13px; fill:var(--ink); }
+        .sub{ font-size:11px; fill:var(--ink-soft); }
+        .edge{ stroke:var(--ink-soft); stroke-width:1.2; fill:none; marker-end:url(#arrow); }
+      </style>
+
+      <rect class="box" x="20" y="20" width="230" height="64" rx="8"></rect>
+      <text class="lbl" x="36" y="46">Learner &amp; admin surfaces</text>
+      <text class="sub" x="36" y="64">Portal shortcodes &middot; wp-admin screens</text>
+
+      <rect class="box" x="295" y="20" width="230" height="64" rx="8"></rect>
+      <text class="lbl" x="311" y="46">REST controllers</text>
+      <text class="sub" x="311" y="64">sslms/v1 &middot; capability + nonce checks</text>
+
+      <rect class="box" x="570" y="20" width="230" height="64" rx="8"></rect>
+      <text class="lbl" x="586" y="46">Domain modules</text>
+      <text class="sub" x="586" y="64">Courses &middot; Quizzes &middot; Journals &middot; &hellip;</text>
+
+      <rect class="box" x="570" y="130" width="230" height="64" rx="8"></rect>
+      <text class="lbl" x="586" y="156">22 custom tables</text>
+      <text class="sub" x="586" y="174">Relational, indexed, exportable</text>
+
+      <rect class="box" x="295" y="130" width="230" height="64" rx="8"></rect>
+      <text class="lbl" x="311" y="156">Audit log</text>
+      <text class="sub" x="311" y="174">Append-only &middot; every compliance action</text>
+
+      <rect class="box" x="20" y="130" width="230" height="64" rx="8"></rect>
+      <text class="lbl" x="36" y="156">WP roles &amp; capabilities</text>
+      <text class="sub" x="36" y="174">Student &middot; Instructor &middot; Preceptor &middot; Evaluator &middot; Mentor</text>
+
+      <path class="edge" d="M250,52 L293,52"></path>
+      <path class="edge" d="M525,52 L568,52"></path>
+      <path class="edge" d="M685,84 L685,128"></path>
+      <path class="edge" d="M568,162 L527,162"></path>
+      <path class="edge" d="M410,84 L410,128"></path>
+      <path class="edge" d="M135,84 L135,128"></path>
+
+      <text class="sub" x="36" y="230" style="font-style:italic">
+        Every mutation is capability-checked, then object-level scoped (e.g. a preceptor
+      </text>
+      <text class="sub" x="36" y="248" style="font-style:italic">
+        may only sign off learners linked to them), then written to the audit log.
+      </text>
+    </svg>
+  </section>
+
+  <section>
+    <h2>Three tracks, one system</h2>
+    <div class="grid">
+      <div class="card">
+        <span class="tag clinical">Clinical</span>
+        <h3>Competency &amp; compliance</h3>
+        <p>Skills checklists with preceptor sign-off, clinical-hour and rotation tracking,
+        credential documents (license, BLS/ACLS, immunization) with expiry alerts.</p>
+      </div>
+      <div class="card">
+        <span class="tag allied">Allied health</span>
+        <h3>Practical evaluation</h3>
+        <p>Discipline-tagged checklists for lab and procedural competencies, evaluator
+        sign-off scoped to assigned learners only, exportable evidence for accreditation.</p>
+      </div>
+      <div class="card">
+        <span class="tag chaplaincy">Chaplaincy</span>
+        <h3>Reflection &amp; mentorship</h3>
+        <p>Reflective journals with per-entry visibility — private, mentor-visible, or
+        instructor-visible — enforced server-side with no administrator override.</p>
+      </div>
+      <div class="card">
+        <span class="tag core">Shared core</span>
+        <h3>Courses, quizzes, certificates</h3>
+        <p>Modular course authoring, randomized server-graded quizzes from reusable question
+        banks, auto-issued certificates with public code verification.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>What the learner portal looks like</h2>
+    <div class="screens">
+      <figure>
+        <div class="frame">
+          <svg viewBox="0 0 380 260" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Learner dashboard mock: navigation bar, DPDP consent notice, and My Learning cards for courses, checklists and hours.">
+            <rect width="380" height="260" fill="var(--paper)"></rect>
+            <rect x="0" y="0" width="380" height="30" fill="var(--paper-soft)"></rect>
+            <text x="14" y="19" font-family="Georgia,serif" font-size="12" fill="var(--ink)">Home</text>
+            <text x="62" y="19" font-family="Georgia,serif" font-size="12" fill="var(--brass-deep)" font-weight="bold">Courses</text>
+            <text x="118" y="19" font-family="Georgia,serif" font-size="12" fill="var(--ink)">Checklists</text>
+            <text x="186" y="19" font-family="Georgia,serif" font-size="12" fill="var(--ink)">Hours</text>
+            <rect x="14" y="42" width="352" height="46" rx="6" fill="var(--paper-soft)" stroke="var(--brass)"></rect>
+            <text x="24" y="60" font-size="10" fill="var(--ink)">Data notice (DPDP Act 2023): private journal entries are visible only to you.</text>
+            <rect x="24" y="68" width="70" height="14" rx="7" fill="var(--brass)"></rect>
+            <text x="32" y="78" font-size="8" fill="white">I understand</text>
+            <text x="14" y="112" font-family="Georgia,serif" font-size="16" fill="var(--ink)">My Learning</text>
+            <rect x="14" y="122" width="168" height="70" rx="8" fill="var(--paper-soft)" stroke="var(--line)"></rect>
+            <text x="24" y="140" font-size="11" font-weight="bold" fill="var(--ink)">My Courses</text>
+            <text x="24" y="156" font-size="10" fill="var(--ink-soft)">1 active &middot; BLS Refresher</text>
+            <rect x="24" y="166" width="140" height="6" rx="3" fill="var(--line)"></rect>
+            <rect x="24" y="166" width="140" height="6" rx="3" fill="var(--brass)"></rect>
+            <rect x="196" y="122" width="170" height="70" rx="8" fill="var(--paper-soft)" stroke="var(--line)"></rect>
+            <text x="206" y="140" font-size="11" font-weight="bold" fill="var(--ink)">My Checklists</text>
+            <text x="206" y="156" font-size="10" fill="var(--ink-soft)">IV Cannulation</text>
+            <text x="206" y="172" font-size="10" fill="var(--ok)">All items competent</text>
+          </svg>
+        </div>
+        <figcaption>Learner dashboard — Playfair/Lato brand, DPDP consent gate, progress cards</figcaption>
+      </figure>
+      <figure>
+        <div class="frame">
+          <svg viewBox="0 0 380 260" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Admin analytics dashboard mock: stat cards for published courses, active learners, completions and expiring documents, with an enrolments-versus-completions bar chart.">
+            <rect width="380" height="260" fill="var(--paper)"></rect>
+            <text x="14" y="24" font-family="Georgia,serif" font-size="15" fill="var(--ink)">SSSIHMS LMS — Dashboard</text>
+            <rect x="14" y="36" width="82" height="46" rx="6" fill="var(--paper-soft)" stroke="var(--line)"></rect>
+            <text x="22" y="50" font-size="9" fill="var(--ink-soft)">Published</text>
+            <text x="22" y="70" font-size="16" font-weight="bold" fill="var(--ink)">4</text>
+            <rect x="102" y="36" width="82" height="46" rx="6" fill="var(--paper-soft)" stroke="var(--line)"></rect>
+            <text x="110" y="50" font-size="9" fill="var(--ink-soft)">Active learners</text>
+            <text x="110" y="70" font-size="16" font-weight="bold" fill="var(--ink)">37</text>
+            <rect x="190" y="36" width="82" height="46" rx="6" fill="var(--paper-soft)" stroke="var(--line)"></rect>
+            <text x="198" y="50" font-size="9" fill="var(--ink-soft)">Completions</text>
+            <text x="198" y="70" font-size="16" font-weight="bold" fill="var(--ink)">12</text>
+            <rect x="278" y="36" width="88" height="46" rx="6" fill="var(--paper-soft)" stroke="var(--warn)"></rect>
+            <text x="286" y="50" font-size="9" fill="var(--warn)">Expiring docs</text>
+            <text x="286" y="70" font-size="16" font-weight="bold" fill="var(--warn)">3</text>
+            <text x="14" y="104" font-size="11" fill="var(--ink)">Enrolments vs completions</text>
+            <g>
+              <rect x="20" y="150" width="18" height="60" fill="var(--allied)"></rect>
+              <rect x="42" y="130" width="18" height="80" fill="var(--brass)"></rect>
+              <rect x="76" y="170" width="18" height="40" fill="var(--allied)"></rect>
+              <rect x="98" y="160" width="18" height="50" fill="var(--brass)"></rect>
+              <rect x="132" y="120" width="18" height="90" fill="var(--allied)"></rect>
+              <rect x="154" y="140" width="18" height="70" fill="var(--brass)"></rect>
+              <rect x="188" y="180" width="18" height="30" fill="var(--allied)"></rect>
+              <rect x="210" y="185" width="18" height="25" fill="var(--brass)"></rect>
+            </g>
+            <line x1="14" y1="210" x2="366" y2="210" stroke="var(--line)"></line>
+          </svg>
+        </div>
+        <figcaption>Admin analytics — every chart pairs with a plain table fallback</figcaption>
+      </figure>
+    </div>
+    <p class="diagram-caption">
+      Illustrative recreations of the real screens (mobile-first CSS, Playfair Display /
+      Lato brand type) — not screenshots. GitHub Pages serves static files only, so the
+      running plugin isn't reachable from here; see “Run it yourself” below.
+    </p>
+  </section>
+
+  <section>
+    <h2>Confidentiality &amp; compliance, by construction</h2>
+    <p>
+      Every reflective-journal read path — single entry, list, comment thread, admin
+      counts — passes through one gate function. Private entries are readable by their
+      author only; <strong>administrators never get content access</strong>, even to
+      mentor- or instructor-visible entries, only aggregate counts (DPDP data minimisation).
+      Credential documents live outside the public uploads path behind an authenticated
+      endpoint. Every compliance-relevant action — enrolments, quiz submissions, sign-offs,
+      hour approvals, document verification, certificate issuance — writes to an append-only
+      audit log with no update or delete path, for NABH review.
+    </p>
+  </section>
+
+  <section>
+    <h2>Full specification vs. this build</h2>
+    <p>The owner's complete functional specification (core LMS + medical/nursing/allied-health
+    + spiritual/chaplaincy requirements) is reconciled item-by-item against Phase 1. A sample:</p>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Requirement</th><th>Status</th><th>Note</th></tr></thead>
+        <tbody>
+          <tr><td>Skills checklists, preceptor sign-off</td><td><span class="pill p1">Built</span></td><td>3-level rating, locks on all-competent</td></tr>
+          <tr><td>Randomized quizzes, question banks</td><td><span class="pill p1">Built</span></td><td>Server-side grading only</td></tr>
+          <tr><td>Reflective journals, confidentiality</td><td><span class="pill p1">Built</span></td><td>No admin content override</td></tr>
+          <tr><td>Credential uploads, expiry alerts</td><td><span class="pill p1">Built</span></td><td>License, BLS/ACLS, immunization, background check</td></tr>
+          <tr><td>SCORM / xAPI / LTI, Zoom/Teams, HR sync, payments</td><td><span class="pill p2">Phase 2</span></td><td>Interfaces defined, not implemented</td></tr>
+          <tr><td>Discussion forums, essay assignments, CME credit ledgers</td><td><span class="pill p2">Backlog</span></td><td>Outside current scope decisions</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>Run it yourself</h2>
+    <div class="cta">
+      <div style="flex:1; min-width:220px;">
+        <p style="margin:0 0 6px; font-size:15px;">
+          <code>git clone</code> the repo, then <code>cd dev && docker compose up -d</code> —
+          WordPress comes up at <code>localhost:8890</code> with the plugin already mounted.
+        </p>
+      </div>
+      <a class="btn" href="https://github.com/vemula78/sssihms-lms">View the code</a>
+      <a class="btn ghost" href="https://github.com/vemula78/sssihms-lms/blob/main/README.md">Setup guide</a>
+    </div>
+  </section>
+
+  <footer>
+    <span>SSSIHMS Whitefield &middot; internal prototype &middot; no patient data</span>
+    <span>Sri Sathya Sai Institute of Higher Medical Sciences</span>
+  </footer>
+</div>
