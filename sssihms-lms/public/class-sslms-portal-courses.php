@@ -37,40 +37,104 @@ class SSLMS_Portal_Courses {
 
 	private static function render_enrolled_courses( int $uid ): string {
 		$rows = SSLMS_Enrollments::for_user( $uid );
-		$html = '<section><h2>Enrolled</h2>';
 		if ( ! $rows ) {
-			$html .= '<p>You are not enrolled in any course yet.</p></section>';
-			return $html;
+			return '<section><h2>Enrolled</h2><p>You are not enrolled in any course yet.</p></section>';
 		}
+
+		$active    = array();
+		$completed = array();
 		foreach ( $rows as $row ) {
-			$course_id = (int) $row->course_id;
-			$url       = SSLMS_Portal::page_url( 'course', array( 'course' => $course_id ) );
-
-			$html .= '<div class="sslms-card">';
-			$html .= '<h3><a href="' . esc_url( $url ) . '">' . esc_html( $row->title ) . '</a></h3>';
-			$html .= '<p><span class="sslms-badge sslms-badge--muted">' . esc_html( ucfirst( $row->track ) ) . '</span> ';
 			if ( 'completed' === $row->enrollment_status ) {
-				$html .= '<span class="sslms-badge sslms-badge--ok">Completed ' . esc_html( SSLMS_DB::fmt_date( $row->completed_at ) ) . '</span>';
+				$completed[] = $row;
 			} else {
-				$html .= '<span class="sslms-badge sslms-badge--warn">In progress</span>';
+				$active[] = $row;
 			}
-			$html .= '</p>';
-
-			if ( class_exists( 'SSLMS_Progress' ) ) {
-				$pct   = SSLMS_Progress::course_pct( $course_id, $uid );
-				$html .= '<div class="sslms-progressbar"><span style="width:' . (int) $pct . '%"></span></div>';
-				$html .= '<p>' . (int) $pct . '% complete</p>';
-			} else {
-				$fallback = self::lesson_progress_fallback( $course_id, $uid );
-				$html    .= '<p>' . (int) $fallback['done'] . ' of ' . (int) $fallback['total'] . ' lessons complete</p>';
-			}
-
-			$html .= '<p><a class="sslms-btn" href="' . esc_url( $url ) . '">'
-				. ( 'completed' === $row->enrollment_status ? 'Review course' : 'Continue' ) . '</a></p>';
-			$html .= '</div>';
 		}
-		$html .= '</section>';
+
+		$html = '';
+		if ( $active ) {
+			$html .= '<section><h2>In progress</h2>';
+			foreach ( $active as $row ) {
+				$html .= self::course_card( $row, $uid, false );
+			}
+			$html .= '</section>';
+		}
+		if ( $completed ) {
+			$html .= '<section><h2>Completed</h2>';
+			foreach ( $completed as $row ) {
+				$html .= self::course_card( $row, $uid, true );
+			}
+			$html .= '</section>';
+		}
 		return $html;
+	}
+
+	/** One enrolled-course card: badges, progress breakdown, resume deep link. */
+	private static function course_card( object $row, int $uid, bool $is_completed ): string {
+		$course_id = (int) $row->course_id;
+		$url       = SSLMS_Portal::page_url( 'course', array( 'course' => $course_id ) );
+
+		$html  = '<div class="sslms-card">';
+		$html .= '<h3><a href="' . esc_url( $url ) . '">' . esc_html( $row->title ) . '</a></h3>';
+		$html .= '<p><span class="sslms-badge sslms-badge--muted">' . esc_html( ucfirst( $row->track ) ) . '</span> ';
+		if ( $is_completed ) {
+			$html .= '<span class="sslms-badge sslms-badge--ok">Completed ' . esc_html( SSLMS_DB::fmt_date( $row->completed_at ) ) . '</span>';
+		} else {
+			$html .= '<span class="sslms-badge sslms-badge--warn">In progress</span>';
+		}
+		$html .= '</p>';
+
+		if ( class_exists( 'SSLMS_Progress' ) ) {
+			$pct   = SSLMS_Progress::course_pct( $course_id, $uid );
+			$html .= '<div class="sslms-progressbar"><span style="width:' . (int) $pct . '%"></span></div>';
+		}
+		$html .= '<p>' . self::counts_line( $course_id, $uid ) . '</p>';
+
+		if ( $is_completed ) {
+			$html .= '<p><a class="sslms-btn sslms-btn--ghost" href="' . esc_url( $url ) . '">Review course</a></p>';
+		} else {
+			$next = self::next_lesson( $course_id, $uid );
+			if ( $next ) {
+				$resume_url = SSLMS_Portal::page_url( 'course', array( 'course' => $course_id, 'lesson' => $next->id ) );
+				$html      .= '<p><a class="sslms-btn" href="' . esc_url( $resume_url ) . '">Resume: ' . esc_html( $next->title ) . '</a></p>';
+			} else {
+				$html .= '<p><a class="sslms-btn" href="' . esc_url( $url ) . '">Continue</a></p>';
+			}
+		}
+		$html .= '</div>';
+		return $html;
+	}
+
+	/** "n of m lessons · q of r assessments passed" summary line. */
+	private static function counts_line( int $course_id, int $uid ): string {
+		$lessons = self::lesson_progress_fallback( $course_id, $uid );
+		$line    = (int) $lessons['done'] . ' / ' . (int) $lessons['total'] . ' lessons';
+		if ( class_exists( 'SSLMS_Quizzes' ) ) {
+			$total  = 0;
+			$passed = 0;
+			foreach ( SSLMS_Quizzes::for_course( $course_id ) as $quiz ) {
+				$total++;
+				if ( SSLMS_Quizzes::user_passed( (int) $quiz->id, $uid ) ) {
+					$passed++;
+				}
+			}
+			if ( $total > 0 ) {
+				$line .= ' &middot; ' . (int) $passed . ' / ' . (int) $total . ' assessments passed';
+			}
+		}
+		return $line;
+	}
+
+	/** First incomplete lesson of a course, in module/lesson order (resume target). */
+	private static function next_lesson( int $course_id, int $uid ): ?object {
+		foreach ( SSLMS_Courses::modules( $course_id ) as $module ) {
+			foreach ( SSLMS_Courses::lessons( (int) $module->id ) as $lesson ) {
+				if ( ! class_exists( 'SSLMS_Progress' ) || ! SSLMS_Progress::lesson_done( (int) $lesson->id, $uid ) ) {
+					return $lesson;
+				}
+			}
+		}
+		return null;
 	}
 
 	private static function render_available_courses( int $uid ): string {
@@ -163,6 +227,19 @@ class SSLMS_Portal_Courses {
 		$enrollment = SSLMS_Enrollments::find( (int) $course->id, $uid );
 		if ( $enrollment && 'completed' === $enrollment->status ) {
 			$html .= '<p><span class="sslms-badge sslms-badge--ok">Completed ' . esc_html( SSLMS_DB::fmt_date( $enrollment->completed_at ) ) . '</span></p>';
+		} elseif ( $enrollment ) {
+			// Progress summary + resume deep link, so a learner on shift lands
+			// straight on their next lesson instead of hunting for it.
+			$html .= '<p>' . self::counts_line( (int) $course->id, $uid ) . '</p>';
+			if ( class_exists( 'SSLMS_Progress' ) ) {
+				$pct   = SSLMS_Progress::course_pct( (int) $course->id, $uid );
+				$html .= '<div class="sslms-progressbar"><span style="width:' . (int) $pct . '%"></span></div>';
+			}
+			$next = self::next_lesson( (int) $course->id, $uid );
+			if ( $next ) {
+				$resume_url = SSLMS_Portal::page_url( 'course', array( 'course' => $course->id, 'lesson' => $next->id ) );
+				$html      .= '<p style="margin-top:10px"><a class="sslms-btn" href="' . esc_url( $resume_url ) . '">Resume: ' . esc_html( $next->title ) . '</a></p>';
+			}
 		}
 
 		$modules = SSLMS_Courses::modules( (int) $course->id );
@@ -170,9 +247,19 @@ class SSLMS_Portal_Courses {
 			$html .= '<p>No content has been added to this course yet.</p>';
 		}
 		foreach ( $modules as $module ) {
-			$html .= '<details class="sslms-card" open><summary><strong>' . esc_html( $module->title ) . '</strong></summary>';
-			$html .= '<ul style="list-style:none;padding:0;margin:10px 0 0">';
 			$lessons = SSLMS_Courses::lessons( (int) $module->id );
+			$done_ct = 0;
+			foreach ( $lessons as $lesson ) {
+				if ( class_exists( 'SSLMS_Progress' ) && SSLMS_Progress::lesson_done( (int) $lesson->id, $uid ) ) {
+					$done_ct++;
+				}
+			}
+			$mod_badge = $lessons
+				? ' <span class="sslms-badge ' . ( count( $lessons ) === $done_ct ? 'sslms-badge--ok' : 'sslms-badge--muted' ) . '">'
+					. (int) $done_ct . ' / ' . count( $lessons ) . '</span>'
+				: '';
+			$html .= '<details class="sslms-card" open><summary><strong>' . esc_html( $module->title ) . '</strong>' . $mod_badge . '</summary>';
+			$html .= '<ul style="list-style:none;padding:0;margin:10px 0 0">';
 			if ( ! $lessons ) {
 				$html .= '<li>No lessons yet.</li>';
 			}
@@ -284,14 +371,21 @@ class SSLMS_Portal_Courses {
 		if ( $in_progress ) {
 			$html .= '<ul style="list-style:none;padding:0;margin:8px 0">';
 			foreach ( $in_progress as $row ) {
-				$url   = SSLMS_Portal::page_url( 'course', array( 'course' => $row->course_id ) );
-				$html .= '<li><a href="' . esc_url( $url ) . '">' . esc_html( $row->title ) . '</a></li>';
+				$next = self::next_lesson( (int) $row->course_id, $uid );
+				if ( $next ) {
+					$url   = SSLMS_Portal::page_url( 'course', array( 'course' => $row->course_id, 'lesson' => $next->id ) );
+					$html .= '<li style="padding:4px 0"><a href="' . esc_url( $url ) . '">' . esc_html( $row->title ) . '</a>'
+						. '<br><small>Next: ' . esc_html( $next->title ) . '</small></li>';
+				} else {
+					$url   = SSLMS_Portal::page_url( 'course', array( 'course' => $row->course_id ) );
+					$html .= '<li style="padding:4px 0"><a href="' . esc_url( $url ) . '">' . esc_html( $row->title ) . '</a></li>';
+				}
 			}
 			$html .= '</ul>';
 		}
 		$html .= '<p><a href="' . esc_url( SSLMS_Portal::page_url( 'my_courses' ) ) . '">View all courses</a></p>';
 
-		$cards[] = array( 'title' => 'My Courses', 'html' => $html );
+		$cards[] = array( 'title' => 'Continue learning', 'html' => $html );
 		return $cards;
 	}
 }
