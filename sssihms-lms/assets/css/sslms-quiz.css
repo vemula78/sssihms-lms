@@ -7,3 +7,10 @@
 .sslms-quiz-form fieldset { margin-bottom: 14px; }
 .sslms-quiz-form legend { font-weight: 700; padding: 0 4px; }
 .sslms-course-quizzes, .sslms-lesson-quizzes { margin: 18px 0; }
+
+.sslms-quiz-compare { margin: 10px 0; }
+.sslms-quiz-compare-label { font-size: 0.85rem; font-weight: 700; color: var(--ss-ink-soft, #6b6459); margin: 0 0 6px; }
+.sslms-quiz-compare-row { display: flex; align-items: center; gap: 8px; margin: 4px 0; }
+.sslms-quiz-compare-tag { width: 68px; font-size: 0.8rem; flex-shrink: 0; }
+.sslms-quiz-compare-row .sslms-progressbar { flex: 1; }
+.sslms-quiz-compare-val { width: 42px; text-align: right; font-size: 0.85rem; font-weight: 700; flex-shrink: 0; }

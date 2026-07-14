@@ -29,6 +29,11 @@
 .sslms-card { border: 1px solid var(--ss-line); border-radius: 10px; padding: 14px 16px; background: var(--ss-soft); }
 .sslms-card h2 { font-size: 1.1rem; margin: 0 0 8px; }
 
+.sslms-quick-access { display: flex; gap: 10px; flex-wrap: wrap; margin: 12px 0; }
+.sslms-quick-card { flex: 1; min-width: 120px; border: 1px solid var(--ss-line); border-radius: 8px; padding: 10px 14px; background: var(--ss-soft); }
+.sslms-quick-label { display: block; font-size: 0.75rem; text-transform: uppercase; letter-spacing: .05em; color: #8a8a8a; margin-bottom: 4px; }
+.sslms-quick-value { font-size: 1.15rem; font-weight: 700; }
+
 .sslms table { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
 .sslms th, .sslms td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--ss-line); vertical-align: top; }
 .sslms .sslms-table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }

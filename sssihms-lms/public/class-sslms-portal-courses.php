@@ -125,6 +125,48 @@ class SSLMS_Portal_Courses {
 		return $line;
 	}
 
+	/**
+	 * Quick-access summary cards for an in-progress course: outstanding
+	 * assessments and a marks summary, pinned above the module list so a
+	 * learner can see "what's outstanding" at a glance rather than scanning
+	 * every module (Great Learning-inspired pattern).
+	 */
+	private static function quick_access_row( int $course_id, int $uid ): string {
+		if ( ! class_exists( 'SSLMS_Quizzes' ) ) {
+			return '';
+		}
+		$quizzes = SSLMS_Quizzes::for_course( $course_id );
+		if ( ! $quizzes ) {
+			return '';
+		}
+		$outstanding = 0;
+		$best_sum    = 0.0;
+		$best_count  = 0;
+		foreach ( $quizzes as $quiz ) {
+			if ( ! SSLMS_Quizzes::user_passed( (int) $quiz->id, $uid ) && ! empty( $quiz->is_required ) ) {
+				$outstanding++;
+			}
+			$best = SSLMS_Quizzes::best_score( (int) $quiz->id, $uid );
+			if ( null !== $best ) {
+				$best_sum += $best;
+				$best_count++;
+			}
+		}
+
+		$html  = '<div class="sslms-quick-access">';
+		$html .= '<div class="sslms-quick-card"><span class="sslms-quick-label">Assessments</span>'
+			. '<span class="sslms-quick-value">' . ( $outstanding > 0
+				? esc_html( $outstanding . ' to do' )
+				: '<span class="sslms-badge sslms-badge--ok">All done</span>' ) . '</span></div>';
+		if ( $best_count > 0 ) {
+			$avg_marks = $best_sum / $best_count;
+			$html     .= '<div class="sslms-quick-card"><span class="sslms-quick-label">Marks</span>'
+				. '<span class="sslms-quick-value">' . esc_html( number_format( $avg_marks, 0 ) . '%' ) . '</span></div>';
+		}
+		$html .= '</div>';
+		return $html;
+	}
+
 	/** First incomplete lesson of a course, in module/lesson order (resume target). */
 	private static function next_lesson( int $course_id, int $uid ): ?object {
 		foreach ( SSLMS_Courses::modules( $course_id ) as $module ) {
@@ -227,6 +269,7 @@ class SSLMS_Portal_Courses {
 		$enrollment = SSLMS_Enrollments::find( (int) $course->id, $uid );
 		if ( $enrollment && 'completed' === $enrollment->status ) {
 			$html .= '<p><span class="sslms-badge sslms-badge--ok">Completed ' . esc_html( SSLMS_DB::fmt_date( $enrollment->completed_at ) ) . '</span></p>';
+			$html .= self::quick_access_row( (int) $course->id, $uid );
 		} elseif ( $enrollment ) {
 			// Progress summary + resume deep link, so a learner on shift lands
 			// straight on their next lesson instead of hunting for it.
@@ -240,6 +283,7 @@ class SSLMS_Portal_Courses {
 				$resume_url = SSLMS_Portal::page_url( 'course', array( 'course' => $course->id, 'lesson' => $next->id ) );
 				$html      .= '<p style="margin-top:10px"><a class="sslms-btn" href="' . esc_url( $resume_url ) . '">Resume: ' . esc_html( $next->title ) . '</a></p>';
 			}
+			$html .= self::quick_access_row( (int) $course->id, $uid );
 		}
 
 		$modules = SSLMS_Courses::modules( (int) $course->id );

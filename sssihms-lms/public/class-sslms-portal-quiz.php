@@ -133,6 +133,26 @@ class SSLMS_Portal_Quiz {
 				<?php endif; ?>
 				<?php echo $badge; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built from a fixed set of escaped strings above ?>
 			</p>
+			<?php
+			$avg = null !== $best ? SSLMS_Quizzes::class_average( (int) $quiz->id ) : null;
+			if ( null !== $avg ) :
+				$you_pct = max( 0, min( 100, (float) $best ) );
+				$avg_pct = max( 0, min( 100, $avg ) );
+				?>
+				<div class="sslms-quiz-compare">
+					<p class="sslms-quiz-compare-label">You vs. class average</p>
+					<div class="sslms-quiz-compare-row">
+						<span class="sslms-quiz-compare-tag">You</span>
+						<div class="sslms-progressbar"><span style="width:<?php echo esc_attr( $you_pct ); ?>%"></span></div>
+						<span class="sslms-quiz-compare-val"><?php echo esc_html( number_format( (float) $best, 0 ) ); ?>%</span>
+					</div>
+					<div class="sslms-quiz-compare-row">
+						<span class="sslms-quiz-compare-tag">Class avg</span>
+						<div class="sslms-progressbar"><span style="width:<?php echo esc_attr( $avg_pct ); ?>%;background:var(--ss-line, #ccc);opacity:.8"></span></div>
+						<span class="sslms-quiz-compare-val"><?php echo esc_html( number_format( $avg, 0 ) ); ?>%</span>
+					</div>
+				</div>
+			<?php endif; ?>
 			<?php if ( $exhausted ) : ?>
 				<p class="sslms-badge sslms-badge--muted">No attempts remaining</p>
 			<?php else : ?>
