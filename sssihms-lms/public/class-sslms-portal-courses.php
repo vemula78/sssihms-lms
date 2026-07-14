@@ -327,13 +327,18 @@ class SSLMS_Portal_Courses {
 		return $html;
 	}
 
-	/** Responsive embed for YouTube/Vimeo URLs; a plain <video> tag for direct file URLs. */
+	/** Responsive embed for YouTube/Vimeo/Google Drive URLs; a plain <video> tag for direct file URLs. */
 	private static function render_video_embed( string $url ): string {
 		if ( preg_match( '#(?:youtube\.com/watch\?v=|youtu\.be/|youtube\.com/embed/)([A-Za-z0-9_-]{6,})#i', $url, $m ) ) {
 			return self::responsive_iframe( 'https://www.youtube.com/embed/' . rawurlencode( $m[1] ) );
 		}
 		if ( preg_match( '#vimeo\.com/(\d+)#i', $url, $m ) ) {
 			return self::responsive_iframe( 'https://player.vimeo.com/video/' . rawurlencode( $m[1] ) );
+		}
+		// Google Drive: stream via Drive's own preview player — the file stays on
+		// Drive and its sharing permissions still apply to each viewer.
+		if ( preg_match( '#drive\.google\.com/file/d/([A-Za-z0-9_-]{10,})#i', $url, $m ) ) {
+			return self::responsive_iframe( 'https://drive.google.com/file/d/' . rawurlencode( $m[1] ) . '/preview' );
 		}
 		return '<video controls style="width:100%;max-width:100%;border-radius:8px" src="' . esc_url( $url ) . '">'
 			. 'Your browser does not support embedded video. <a href="' . esc_url( $url ) . '">Download the video</a>.</video>';
