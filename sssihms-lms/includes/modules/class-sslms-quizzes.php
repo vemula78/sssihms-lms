@@ -21,6 +21,9 @@ class SSLMS_Quizzes {
 	/** Grace period (seconds) after time_limit_min before a submission is graded as unanswered. */
 	const GRACE_SECONDS = 60;
 
+	/** Do not expose comparative score aggregates for very small cohorts. */
+	const MIN_CLASS_AVERAGE_SIZE = 5;
+
 	public static function init(): void {
 		// No hooks of its own; consumed by the REST, admin and portal files.
 	}
@@ -136,21 +139,27 @@ class SSLMS_Quizzes {
 	/**
 	 * Class average: mean of each learner's best submitted score on this quiz.
 	 * Aggregate only — never exposes any individual learner's score/identity.
-	 * Returns null when fewer than 2 learners have attempted (nothing to
-	 * compare against, and avoids a "class average" of exactly one person).
+	 * Returns null for small cohorts because a learner who knows their own
+	 * score can otherwise infer another learner's score from the aggregate.
 	 */
 	public static function class_average( int $quiz_id ): ?float {
 		global $wpdb;
-		$t = SSLMS_DB::table( 'quiz_attempts' );
+		$attempts_t    = SSLMS_DB::table( 'quiz_attempts' );
+		$quizzes_t     = SSLMS_DB::table( 'quizzes' );
+		$enrollments_t = SSLMS_DB::table( 'enrollments' );
 		$row = $wpdb->get_row( $wpdb->prepare(
 			"SELECT AVG(best) AS avg_best, COUNT(*) AS n FROM (
-				SELECT MAX(score_pct) AS best FROM {$t}
-				WHERE quiz_id = %d AND submitted_at IS NOT NULL
-				GROUP BY user_id
+				SELECT MAX(a.score_pct) AS best
+				FROM {$attempts_t} a
+				INNER JOIN {$quizzes_t} q ON q.id = a.quiz_id
+				INNER JOIN {$enrollments_t} e ON e.course_id = q.course_id
+					AND e.user_id = a.user_id AND e.status IN ('active','completed')
+				WHERE a.quiz_id = %d AND a.submitted_at IS NOT NULL
+				GROUP BY a.user_id
 			) AS per_user",
 			$quiz_id
 		) );
-		if ( ! $row || (int) $row->n < 2 || null === $row->avg_best ) {
+		if ( ! $row || (int) $row->n < self::MIN_CLASS_AVERAGE_SIZE || null === $row->avg_best ) {
 			return null;
 		}
 		return (float) $row->avg_best;

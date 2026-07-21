@@ -73,6 +73,7 @@ class SSLMS_Portal_Courses {
 	private static function course_card( object $row, int $uid, bool $is_completed ): string {
 		$course_id = (int) $row->course_id;
 		$url       = SSLMS_Portal::page_url( 'course', array( 'course' => $course_id ) );
+		$data      = self::course_view_data( $course_id, $uid );
 
 		$html  = '<div class="sslms-card">';
 		$html .= '<h3><a href="' . esc_url( $url ) . '">' . esc_html( $row->title ) . '</a></h3>';
@@ -84,16 +85,13 @@ class SSLMS_Portal_Courses {
 		}
 		$html .= '</p>';
 
-		if ( class_exists( 'SSLMS_Progress' ) ) {
-			$pct   = SSLMS_Progress::course_pct( $course_id, $uid );
-			$html .= '<div class="sslms-progressbar"><span style="width:' . (int) $pct . '%"></span></div>';
-		}
-		$html .= '<p>' . self::counts_line( $course_id, $uid ) . '</p>';
+		$html .= '<div class="sslms-progressbar"><span style="width:' . (int) $data['course_pct'] . '%"></span></div>';
+		$html .= '<p>' . self::counts_line( $data ) . '</p>';
 
 		if ( $is_completed ) {
 			$html .= '<p><a class="sslms-btn sslms-btn--ghost" href="' . esc_url( $url ) . '">Review course</a></p>';
 		} else {
-			$next = self::next_lesson( $course_id, $uid );
+			$next = self::next_lesson( $data );
 			if ( $next ) {
 				$resume_url = SSLMS_Portal::page_url( 'course', array( 'course' => $course_id, 'lesson' => $next->id ) );
 				$html      .= '<p><a class="sslms-btn" href="' . esc_url( $resume_url ) . '">Resume: ' . esc_html( $next->title ) . '</a></p>';
@@ -106,21 +104,10 @@ class SSLMS_Portal_Courses {
 	}
 
 	/** "n of m lessons · q of r assessments passed" summary line. */
-	private static function counts_line( int $course_id, int $uid ): string {
-		$lessons = self::lesson_progress_fallback( $course_id, $uid );
-		$line    = (int) $lessons['done'] . ' / ' . (int) $lessons['total'] . ' lessons';
-		if ( class_exists( 'SSLMS_Quizzes' ) ) {
-			$total  = 0;
-			$passed = 0;
-			foreach ( SSLMS_Quizzes::for_course( $course_id ) as $quiz ) {
-				$total++;
-				if ( SSLMS_Quizzes::user_passed( (int) $quiz->id, $uid ) ) {
-					$passed++;
-				}
-			}
-			if ( $total > 0 ) {
-				$line .= ' &middot; ' . (int) $passed . ' / ' . (int) $total . ' assessments passed';
-			}
+	private static function counts_line( array $data ): string {
+		$line = (int) $data['lesson_done'] . ' / ' . (int) $data['lesson_total'] . ' lessons';
+		if ( $data['required_total'] > 0 ) {
+			$line .= ' &middot; ' . (int) $data['required_passed'] . ' / ' . (int) $data['required_total'] . ' required assessments passed';
 		}
 		return $line;
 	}
@@ -131,35 +118,20 @@ class SSLMS_Portal_Courses {
 	 * learner can see "what's outstanding" at a glance rather than scanning
 	 * every module (Great Learning-inspired pattern).
 	 */
-	private static function quick_access_row( int $course_id, int $uid ): string {
-		if ( ! class_exists( 'SSLMS_Quizzes' ) ) {
+	private static function quick_access_row( array $data ): string {
+		if ( 0 === $data['required_total'] && 0 === $data['best_count'] ) {
 			return '';
-		}
-		$quizzes = SSLMS_Quizzes::for_course( $course_id );
-		if ( ! $quizzes ) {
-			return '';
-		}
-		$outstanding = 0;
-		$best_sum    = 0.0;
-		$best_count  = 0;
-		foreach ( $quizzes as $quiz ) {
-			if ( ! SSLMS_Quizzes::user_passed( (int) $quiz->id, $uid ) && ! empty( $quiz->is_required ) ) {
-				$outstanding++;
-			}
-			$best = SSLMS_Quizzes::best_score( (int) $quiz->id, $uid );
-			if ( null !== $best ) {
-				$best_sum += $best;
-				$best_count++;
-			}
 		}
 
-		$html  = '<div class="sslms-quick-access">';
-		$html .= '<div class="sslms-quick-card"><span class="sslms-quick-label">Assessments</span>'
-			. '<span class="sslms-quick-value">' . ( $outstanding > 0
-				? esc_html( $outstanding . ' to do' )
-				: '<span class="sslms-badge sslms-badge--ok">All done</span>' ) . '</span></div>';
-		if ( $best_count > 0 ) {
-			$avg_marks = $best_sum / $best_count;
+		$html = '<div class="sslms-quick-access">';
+		if ( $data['required_total'] > 0 ) {
+			$html .= '<div class="sslms-quick-card"><span class="sslms-quick-label">Required assessments</span>'
+				. '<span class="sslms-quick-value">' . ( $data['outstanding_required'] > 0
+					? esc_html( $data['outstanding_required'] . ' to do' )
+					: '<span class="sslms-badge sslms-badge--ok">All done</span>' ) . '</span></div>';
+		}
+		if ( $data['best_count'] > 0 ) {
+			$avg_marks = $data['best_sum'] / $data['best_count'];
 			$html     .= '<div class="sslms-quick-card"><span class="sslms-quick-label">Marks</span>'
 				. '<span class="sslms-quick-value">' . esc_html( number_format( $avg_marks, 0 ) . '%' ) . '</span></div>';
 		}
@@ -168,15 +140,109 @@ class SSLMS_Portal_Courses {
 	}
 
 	/** First incomplete lesson of a course, in module/lesson order (resume target). */
-	private static function next_lesson( int $course_id, int $uid ): ?object {
-		foreach ( SSLMS_Courses::modules( $course_id ) as $module ) {
-			foreach ( SSLMS_Courses::lessons( (int) $module->id ) as $lesson ) {
-				if ( ! class_exists( 'SSLMS_Progress' ) || ! SSLMS_Progress::lesson_done( (int) $lesson->id, $uid ) ) {
-					return $lesson;
-				}
+	private static function next_lesson( array $data ): ?object {
+		return $data['next_lesson'];
+	}
+
+	/**
+	 * Batched, request-cached learner state for one course. This replaces the
+	 * per-lesson/per-quiz lookups that made portal query counts grow with every
+	 * item rendered.
+	 */
+	private static function course_view_data( int $course_id, int $uid ): array {
+		static $cache = array();
+		$key = $course_id . ':' . $uid;
+		if ( isset( $cache[ $key ] ) ) {
+			return $cache[ $key ];
+		}
+
+		global $wpdb;
+		$modules          = SSLMS_Courses::modules( $course_id );
+		$lessons_t        = SSLMS_DB::table( 'lessons' );
+		$modules_t        = SSLMS_DB::table( 'modules' );
+		$progress_t       = SSLMS_DB::table( 'lesson_progress' );
+		$lessons          = $wpdb->get_results( $wpdb->prepare(
+			"SELECT l.*, CASE WHEN lp.id IS NULL THEN 0 ELSE 1 END AS sslms_done
+			 FROM {$lessons_t} l
+			 INNER JOIN {$modules_t} m ON m.id = l.module_id
+			 LEFT JOIN {$progress_t} lp ON lp.lesson_id = l.id AND lp.user_id = %d
+			 WHERE m.course_id = %d
+			 ORDER BY m.sort_order ASC, m.id ASC, l.sort_order ASC, l.id ASC",
+			$uid,
+			$course_id
+		) ) ?: array();
+
+		$lessons_by_module = array();
+		foreach ( $modules as $module ) {
+			$lessons_by_module[ (int) $module->id ] = array();
+		}
+		$lesson_done = 0;
+		$next_lesson = null;
+		foreach ( $lessons as $lesson ) {
+			$lessons_by_module[ (int) $lesson->module_id ][] = $lesson;
+			if ( ! empty( $lesson->sslms_done ) ) {
+				$lesson_done++;
+			} elseif ( null === $next_lesson ) {
+				$next_lesson = $lesson;
 			}
 		}
-		return null;
+
+		$quizzes = array();
+		if ( class_exists( 'SSLMS_Quizzes' ) ) {
+			$quizzes_t = SSLMS_DB::table( 'quizzes' );
+			$attempts_t = SSLMS_DB::table( 'quiz_attempts' );
+			$quizzes    = $wpdb->get_results( $wpdb->prepare(
+				"SELECT q.*, COALESCE(a.user_passed, 0) AS sslms_passed, a.best_score AS sslms_best
+				 FROM {$quizzes_t} q
+				 LEFT JOIN (
+					SELECT quiz_id, MAX(passed) AS user_passed, MAX(score_pct) AS best_score
+					FROM {$attempts_t}
+					WHERE user_id = %d AND submitted_at IS NOT NULL
+					GROUP BY quiz_id
+				 ) a ON a.quiz_id = q.id
+				 WHERE q.course_id = %d
+				 ORDER BY (q.lesson_id IS NULL) ASC, q.lesson_id ASC, q.id ASC",
+				$uid,
+				$course_id
+			) ) ?: array();
+		}
+
+		$required_total  = 0;
+		$required_passed = 0;
+		$best_sum        = 0.0;
+		$best_count      = 0;
+		foreach ( $quizzes as $quiz ) {
+			if ( ! empty( $quiz->is_required ) ) {
+				$required_total++;
+				if ( ! empty( $quiz->sslms_passed ) ) {
+					$required_passed++;
+				}
+			}
+			if ( null !== $quiz->sslms_best ) {
+				$best_sum += (float) $quiz->sslms_best;
+				$best_count++;
+			}
+		}
+
+		$lesson_total = count( $lessons );
+		$unit_total   = $lesson_total + $required_total;
+		$course_pct   = 0 === $unit_total ? 100 : (int) round( ( ( $lesson_done + $required_passed ) / $unit_total ) * 100 );
+
+		$cache[ $key ] = array(
+			'modules'              => $modules,
+			'lessons_by_module'     => $lessons_by_module,
+			'lesson_total'          => $lesson_total,
+			'lesson_done'           => $lesson_done,
+			'next_lesson'           => $next_lesson,
+			'quizzes'               => $quizzes,
+			'required_total'        => $required_total,
+			'required_passed'       => $required_passed,
+			'outstanding_required'  => $required_total - $required_passed,
+			'best_sum'              => $best_sum,
+			'best_count'            => $best_count,
+			'course_pct'            => $course_pct,
+		);
+		return $cache[ $key ];
 	}
 
 	private static function render_available_courses( int $uid ): string {
@@ -198,23 +264,6 @@ class SSLMS_Portal_Courses {
 		}
 		$html .= '</section>';
 		return $html;
-	}
-
-	/** Lesson-count fallback used only when Module C (SSLMS_Progress) is not loaded. */
-	private static function lesson_progress_fallback( int $course_id, int $user_id ): array {
-		$lesson_ids = SSLMS_Courses::lesson_ids( $course_id );
-		$total      = count( $lesson_ids );
-		if ( 0 === $total ) {
-			return array( 'done' => 0, 'total' => 0 );
-		}
-		global $wpdb;
-		$t            = SSLMS_DB::table( 'lesson_progress' );
-		$placeholders = implode( ',', array_fill( 0, $total, '%d' ) );
-		$done         = (int) $wpdb->get_var( $wpdb->prepare(
-			"SELECT COUNT(*) FROM {$t} WHERE user_id = %d AND lesson_id IN ({$placeholders})",
-			array_merge( array( $user_id ), array_map( 'intval', $lesson_ids ) )
-		) );
-		return array( 'done' => $done, 'total' => $total );
 	}
 
 	/* -----------------------------------------------------------------
@@ -261,6 +310,7 @@ class SSLMS_Portal_Courses {
 
 	private static function render_overview( object $course, int $uid ): string {
 		$html = '';
+		$data = self::course_view_data( (int) $course->id, $uid );
 		if ( $course->description ) {
 			$html .= '<p>' . nl2br( esc_html( $course->description ) ) . '</p>';
 		}
@@ -269,32 +319,29 @@ class SSLMS_Portal_Courses {
 		$enrollment = SSLMS_Enrollments::find( (int) $course->id, $uid );
 		if ( $enrollment && 'completed' === $enrollment->status ) {
 			$html .= '<p><span class="sslms-badge sslms-badge--ok">Completed ' . esc_html( SSLMS_DB::fmt_date( $enrollment->completed_at ) ) . '</span></p>';
-			$html .= self::quick_access_row( (int) $course->id, $uid );
+			$html .= self::quick_access_row( $data );
 		} elseif ( $enrollment ) {
 			// Progress summary + resume deep link, so a learner on shift lands
 			// straight on their next lesson instead of hunting for it.
-			$html .= '<p>' . self::counts_line( (int) $course->id, $uid ) . '</p>';
-			if ( class_exists( 'SSLMS_Progress' ) ) {
-				$pct   = SSLMS_Progress::course_pct( (int) $course->id, $uid );
-				$html .= '<div class="sslms-progressbar"><span style="width:' . (int) $pct . '%"></span></div>';
-			}
-			$next = self::next_lesson( (int) $course->id, $uid );
+			$html .= '<p>' . self::counts_line( $data ) . '</p>';
+			$html .= '<div class="sslms-progressbar"><span style="width:' . (int) $data['course_pct'] . '%"></span></div>';
+			$next = self::next_lesson( $data );
 			if ( $next ) {
 				$resume_url = SSLMS_Portal::page_url( 'course', array( 'course' => $course->id, 'lesson' => $next->id ) );
 				$html      .= '<p style="margin-top:10px"><a class="sslms-btn" href="' . esc_url( $resume_url ) . '">Resume: ' . esc_html( $next->title ) . '</a></p>';
 			}
-			$html .= self::quick_access_row( (int) $course->id, $uid );
+			$html .= self::quick_access_row( $data );
 		}
 
-		$modules = SSLMS_Courses::modules( (int) $course->id );
+		$modules = $data['modules'];
 		if ( ! $modules ) {
 			$html .= '<p>No content has been added to this course yet.</p>';
 		}
 		foreach ( $modules as $module ) {
-			$lessons = SSLMS_Courses::lessons( (int) $module->id );
+			$lessons = $data['lessons_by_module'][ (int) $module->id ] ?? array();
 			$done_ct = 0;
 			foreach ( $lessons as $lesson ) {
-				if ( class_exists( 'SSLMS_Progress' ) && SSLMS_Progress::lesson_done( (int) $lesson->id, $uid ) ) {
+				if ( ! empty( $lesson->sslms_done ) ) {
 					$done_ct++;
 				}
 			}
@@ -308,7 +355,7 @@ class SSLMS_Portal_Courses {
 				$html .= '<li>No lessons yet.</li>';
 			}
 			foreach ( $lessons as $lesson ) {
-				$done = class_exists( 'SSLMS_Progress' ) && SSLMS_Progress::lesson_done( (int) $lesson->id, $uid );
+				$done = ! empty( $lesson->sslms_done );
 				$tick = $done
 					? '<span class="sslms-badge sslms-badge--ok">&#10003; Done</span>'
 					: '<span class="sslms-badge sslms-badge--muted">Not started</span>';
@@ -381,11 +428,29 @@ class SSLMS_Portal_Courses {
 		}
 		// Google Drive: stream via Drive's own preview player — the file stays on
 		// Drive and its sharing permissions still apply to each viewer.
-		if ( preg_match( '#drive\.google\.com/file/d/([A-Za-z0-9_-]{10,})#i', $url, $m ) ) {
-			return self::responsive_iframe( 'https://drive.google.com/file/d/' . rawurlencode( $m[1] ) . '/preview' );
+		$drive_id = self::google_drive_file_id( $url );
+		if ( $drive_id ) {
+			return self::responsive_iframe( 'https://drive.google.com/file/d/' . rawurlencode( $drive_id ) . '/preview' );
 		}
 		return '<video controls style="width:100%;max-width:100%;border-radius:8px" src="' . esc_url( $url ) . '">'
 			. 'Your browser does not support embedded video. <a href="' . esc_url( $url ) . '">Download the video</a>.</video>';
+	}
+
+	/** File id from either /file/d/ID links or older open/uc?id=ID links. */
+	private static function google_drive_file_id( string $url ): string {
+		$parts = wp_parse_url( $url );
+		if ( empty( $parts['host'] ) || 'drive.google.com' !== strtolower( $parts['host'] ) ) {
+			return '';
+		}
+		if ( ! empty( $parts['path'] ) && preg_match( '#/file/d/([A-Za-z0-9_-]{10,})#', $parts['path'], $matches ) ) {
+			return $matches[1];
+		}
+		if ( empty( $parts['query'] ) ) {
+			return '';
+		}
+		parse_str( $parts['query'], $query );
+		$id = isset( $query['id'] ) && is_string( $query['id'] ) ? $query['id'] : '';
+		return preg_match( '/^[A-Za-z0-9_-]{10,}$/', $id ) ? $id : '';
 	}
 
 	private static function responsive_iframe( string $src ): string {
@@ -420,7 +485,8 @@ class SSLMS_Portal_Courses {
 		if ( $in_progress ) {
 			$html .= '<ul style="list-style:none;padding:0;margin:8px 0">';
 			foreach ( $in_progress as $row ) {
-				$next = self::next_lesson( (int) $row->course_id, $uid );
+				$data = self::course_view_data( (int) $row->course_id, $uid );
+				$next = self::next_lesson( $data );
 				if ( $next ) {
 					$url   = SSLMS_Portal::page_url( 'course', array( 'course' => $row->course_id, 'lesson' => $next->id ) );
 					$html .= '<li style="padding:4px 0"><a href="' . esc_url( $url ) . '">' . esc_html( $row->title ) . '</a>'

@@ -10,6 +10,7 @@ allied-health practical evaluation, and chaplaincy/spiritual formation.
 - **CONVENTIONS.md** — module-builder contract used during construction
 - **sssihms-lms/** — the plugin (the only thing you deploy)
 - **dev/** — local Docker WordPress for development/testing
+- **dev/COURSE_IMPORT_FORMAT.md** — JSON contract for the external DOCX course parser
 
 ## Production install (on-prem Ubuntu VM, existing WordPress)
 
