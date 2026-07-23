@@ -51,6 +51,7 @@ class SSLMS_Portal {
 			'my_assessments'  => 'Assessments',
 			'passport'        => 'Passport',
 			'my_ospe'         => 'OSPE',
+			'scenarios'       => 'Scenarios',
 			'my_hours'        => 'Hours',
 			'my_journal'      => 'Journal',
 			'my_documents'    => 'Documents',

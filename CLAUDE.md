@@ -153,6 +153,8 @@ documents, audit log, analytics dashboard, people/relationships) is built and ve
 Phase 2 (SCORM/xAPI/LTI, Zoom/Teams, HR sync, payments) is **interfaces only** —
 `includes/interfaces/class-sslms-integrations.php` defines the contracts and a
 `sslms_register_integrations` filter-based registry; there is intentionally no working
-implementation behind any of them. `ROADMAP-PHASE3.md` describes planned
-competency-framework/OSPE/simulation work — not yet built; treat it as a spec to build
-toward, not existing behavior.
+implementation behind any of them. Phase 3 (per `ROADMAP-PHASE3.md`) is largely built:
+3a rubrics/assessments, 3b competency framework/passport, 3c OSPE, and 3e branching
+scenarios are implemented and smoke-tested (DB 1.4.0); 3d (KPI dashboard v2) was built
+in a separate session; 3f (live-AI simulation pilot) is deliberately NOT built — it
+needs hospital budget/policy sign-off first.

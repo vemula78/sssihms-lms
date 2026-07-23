@@ -19,7 +19,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 class SSLMS_Competencies {
 
-	const OBJECT_TYPES = array( 'quiz', 'checklist_item', 'rubric', 'rubric_criterion', 'rotation', 'ospe_station' );
+	const OBJECT_TYPES = array( 'quiz', 'checklist_item', 'rubric', 'rubric_criterion', 'rotation', 'ospe_station', 'scenario' );
 	const LEVELS       = array( 'novice', 'competent', 'proficient' );
 
 	/* ---------------------------------------------------------------
@@ -195,6 +195,7 @@ class SSLMS_Competencies {
 			'rubric_criterion' => 'rubric_criteria',
 			'rotation'         => 'rotations',
 			'ospe_station'     => 'ospe_stations',
+			'scenario'         => 'scenarios',
 		)[ $type ];
 		return (bool) SSLMS_DB::get_row( $table, $id );
 	}
@@ -231,6 +232,9 @@ class SSLMS_Competencies {
 				}
 				$exam = SSLMS_DB::get_row( 'ospe_exams', (int) $row->exam_id );
 				return 'OSPE station: ' . $row->title . ( $exam ? ' (' . $exam->title . ')' : '' );
+			case 'scenario':
+				$row = SSLMS_DB::get_row( 'scenarios', $id );
+				return $row ? 'Scenario: ' . $row->title : 'Scenario #' . $id . ' (deleted)';
 		}
 		return $type . ' #' . $id;
 	}
@@ -314,6 +318,12 @@ class SSLMS_Competencies {
 				}
 				$pct = 100 * (float) $marks / (float) $station->max_marks;
 				return (float) $exam->min_station_pct > 0 ? $pct >= (float) $exam->min_station_pct : (float) $marks > 0;
+			case 'scenario':
+				$sa = SSLMS_DB::table( 'scenario_attempts' );
+				return (bool) $wpdb->get_var( $wpdb->prepare(
+					"SELECT id FROM {$sa} WHERE scenario_id = %d AND user_id = %d AND passed = 1 LIMIT 1",
+					$object_id, $user_id
+				) );
 		}
 		return false;
 	}

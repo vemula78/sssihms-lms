@@ -5,7 +5,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class SSLMS_Install {
 
-	const DB_VERSION = '1.3.0';
+	const DB_VERSION = '1.4.0';
 
 	public static function activate(): void {
 		self::create_tables();
@@ -475,6 +475,50 @@ class SSLMS_Install {
   KEY candidate_id (candidate_id)
 ) $c;";
 
+		// Phase 3e — branching clinical scenarios, Tier A (ROADMAP-PHASE3.md).
+		$sql[] = "CREATE TABLE {$p}scenarios (
+  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  title varchar(200) NOT NULL,
+  discipline varchar(100) NOT NULL DEFAULT '',
+  description text,
+  status varchar(20) NOT NULL DEFAULT 'draft',
+  pass_pct decimal(5,2) NOT NULL DEFAULT 70,
+  created_by bigint(20) unsigned NOT NULL DEFAULT 0,
+  created_at datetime NOT NULL,
+  PRIMARY KEY  (id),
+  KEY status (status)
+) $c;";
+
+		$sql[] = "CREATE TABLE {$p}scenario_nodes (
+  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  scenario_id bigint(20) unsigned NOT NULL,
+  node_type varchar(20) NOT NULL DEFAULT 'decision',
+  title varchar(200) NOT NULL DEFAULT '',
+  body longtext,
+  options longtext,
+  debrief text,
+  is_start tinyint(1) NOT NULL DEFAULT 0,
+  PRIMARY KEY  (id),
+  KEY scenario_id (scenario_id)
+) $c;";
+
+		$sql[] = "CREATE TABLE {$p}scenario_attempts (
+  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  scenario_id bigint(20) unsigned NOT NULL,
+  user_id bigint(20) unsigned NOT NULL,
+  current_node_id bigint(20) unsigned NOT NULL DEFAULT 0,
+  path longtext,
+  score decimal(8,2) NOT NULL DEFAULT 0,
+  max_score decimal(8,2) NOT NULL DEFAULT 0,
+  score_pct decimal(5,2) DEFAULT NULL,
+  passed tinyint(1) NOT NULL DEFAULT 0,
+  started_at datetime NOT NULL,
+  completed_at datetime DEFAULT NULL,
+  PRIMARY KEY  (id),
+  KEY scenario_user (scenario_id,user_id),
+  KEY user_id (user_id)
+) $c;";
+
 		foreach ( $sql as $statement ) {
 			dbDelta( $statement );
 		}
@@ -494,6 +538,7 @@ class SSLMS_Install {
 			'my_assessments' => array( 'My Assessments', '[sslms_my_assessments]' ),
 			'passport'       => array( 'Competency Passport', '[sslms_passport]' ),
 			'my_ospe'        => array( 'OSPE', '[sslms_my_ospe]' ),
+			'scenarios'      => array( 'Practice Scenarios', '[sslms_scenarios]' ),
 			'verify'       => array( 'Verify Certificate', '[sslms_verify_certificate]' ),
 		);
 	}

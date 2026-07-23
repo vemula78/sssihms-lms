@@ -121,3 +121,23 @@
   entry to a single field on a phone.
 - **3b integration**: `ospe_station` is a competency evidence type; satisfied only in
   PUBLISHED exams where the candidate met min_station_pct (or >0 marks when unset).
+
+## Phase 3e decisions (23-Jul-2026)
+
+- **Three new tables** per roadmap: `scenarios`, `scenario_nodes`, `scenario_attempts`.
+  DB_VERSION 1.4.0.
+- **AI-assisted authoring = JSON import, not a runtime integration**: educators paste a
+  Claude-drafted scenario (documented JSON shape with string node keys) into the admin
+  importer; it always lands as a DRAFT, the editor screen is the clinical-review gate,
+  and publishing runs a structural graph validation (one start, ≥1 end, no dangling
+  option targets). Zero per-use cost, fully on-prem, human-approved content only.
+- **Scoring denominator is path-relative**: earned marks vs the best available option at
+  each *visited* decision, so different branches are scored fairly.
+- **One open attempt per learner per scenario** (start resumes it); completed attempts
+  are immutable and a passed attempt on a published scenario is 3b competency evidence
+  (new `scenario` evidence type).
+- **Structural node editing UI kept minimal** (review + delete + re-import) — full
+  drag-and-drop tree editing was cut from v1; the import format is the authoring path.
+- **Phase 3f (live AI simulated patient) deliberately not built** — per roadmap it is
+  gated on hospital budget/policy sign-off; the Phase 2 integrations registry is the
+  intended attachment point when approved.

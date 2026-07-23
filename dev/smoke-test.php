@@ -406,6 +406,65 @@ as_user( 'student1' );
 $ohtml = do_shortcode( '[sslms_my_ospe]' );
 ok( is_string( $ohtml ) && false !== strpos( $ohtml, 'Nursing OSPE July 2026' ), '3c portal shows learner OSPE result' );
 
+// ---------- Phase 3e: branching scenarios ----------
+as_user( 'admin' );
+$scn_json = wp_json_encode( array(
+	'title'       => 'Chest pain triage',
+	'discipline'  => 'Nursing',
+	'description' => 'Fictional 58-year-old with acute chest pain.',
+	'pass_pct'    => 70,
+	'nodes'       => array(
+		array( 'key' => 'start', 'type' => 'decision', 'start' => true, 'title' => 'Initial assessment',
+			'body' => '<p>Mr X (fictional) reports crushing chest pain.</p>',
+			'options' => array(
+				array( 'label' => 'Full vitals + ECG within 10 min', 'next' => 'escalate', 'marks' => 10, 'feedback' => 'Correct: time-critical.' ),
+				array( 'label' => 'Give antacid and observe', 'next' => 'escalate', 'marks' => 0, 'feedback' => 'Delays care of possible ACS.' ),
+			) ),
+		array( 'key' => 'escalate', 'type' => 'decision', 'title' => 'Escalation',
+			'body' => '<p>ECG shows ST elevation.</p>',
+			'options' => array(
+				array( 'label' => 'Activate cath-lab protocol + inform physician', 'next' => 'finish', 'marks' => 10, 'feedback' => 'Correct.' ),
+				array( 'label' => 'Wait for the next scheduled round', 'next' => 'finish', 'marks' => 0, 'feedback' => 'Unsafe delay.' ),
+			) ),
+		array( 'key' => 'finish', 'type' => 'end', 'title' => 'Case complete', 'debrief' => 'Door-to-balloon time drives outcomes in STEMI.' ),
+	),
+) );
+$scn_id = SSLMS_Scenarios::import_json( $scn_json, $admin );
+ok( is_int( $scn_id ) && $scn_id > 0, '3e scenario imported from JSON as draft' );
+ok( array() === SSLMS_Scenarios::validate_graph( $scn_id ), '3e imported graph validates' );
+$bad = SSLMS_Scenarios::import_json( '{"title":"x","nodes":[{"key":"a","options":[{"label":"l","next":"missing"}]}]}', $admin );
+ok( is_wp_error( $bad ), '3e import with dangling node reference rejected' );
+
+// learners cannot start drafts
+$try = SSLMS_Scenarios::start_attempt( $scn_id, $student );
+ok( is_wp_error( $try ), '3e draft scenario cannot be attempted' );
+SSLMS_Scenarios::update_scenario( $scn_id, array( 'status' => 'published' ) );
+$att = SSLMS_Scenarios::start_attempt( $scn_id, $student );
+ok( is_int( $att ) && $att > 0, '3e attempt started on published scenario' );
+ok( $att === SSLMS_Scenarios::start_attempt( $scn_id, $student ), '3e re-start resumes the open attempt' );
+
+// walk the tree: best choice then worst → 50%, fail at 70% pass mark
+$step = SSLMS_Scenarios::choose( $att, 0, $student );
+ok( ! is_wp_error( $step ) && ! $step->completed_at, '3e first decision recorded' );
+ok( is_wp_error( SSLMS_Scenarios::choose( $att, 0, $student2 ) ), '3e another user cannot drive someone else\'s attempt' );
+$step = SSLMS_Scenarios::choose( $att, 1, $student );
+ok( $step->completed_at && 50.0 === (float) $step->score_pct && ! $step->passed, '3e attempt completes: 50% fail with feedback path' );
+ok( is_wp_error( SSLMS_Scenarios::choose( $att, 0, $student ) ), '3e completed attempt is immutable' );
+ok( is_wp_error( SSLMS_Scenarios::delete_scenario( $scn_id ) ), '3e scenario with attempts cannot be deleted' );
+
+// second attempt, perfect run → pass; counts as 3b evidence
+$att2 = SSLMS_Scenarios::start_attempt( $scn_id, $student );
+SSLMS_Scenarios::choose( $att2, 0, $student );
+$done = SSLMS_Scenarios::choose( $att2, 0, $student );
+ok( $done->passed && 100.0 === (float) $done->score_pct, '3e perfect path passes at 100%' );
+$comp_scn = SSLMS_Competencies::create_competency( array( 'title' => 'Acute deterioration response', 'discipline' => 'Nursing', 'parent_id' => $domain_id ) );
+SSLMS_Competencies::add_mapping( $comp_scn, 'scenario', $scn_id, $admin );
+ok( SSLMS_Competencies::evidence_satisfied( 'scenario', $scn_id, $student ), '3e/3b passed scenario counts as competency evidence' );
+ok( ! SSLMS_Competencies::evidence_satisfied( 'scenario', $scn_id, $student2 ), '3e/3b unattempted learner not credited' );
+as_user( 'student1' );
+$shtml = do_shortcode( '[sslms_scenarios]' );
+ok( is_string( $shtml ) && false !== strpos( $shtml, 'Chest pain triage' ), '3e portal lists scenario and attempts' );
+
 // ---------- F10: audit ----------
 $n = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->prefix}sslms_audit_log" );
 ok( $n >= 10, "F10 audit log populated ($n rows)" );
