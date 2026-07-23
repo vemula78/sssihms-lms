@@ -150,3 +150,14 @@
   `sslms_view_reports` bypass was also removed from rotation reads and both hour-CSV
   exports because it recreated the same leak for instructors; rotation edit/delete is
   now `sslms_manage` only (creation stays with `sslms_enroll_learners`).
+
+## Phase 3d notes (23-Jul-2026, built in a parallel session per PHASE3D-BRIEF.md)
+
+- No schema change: department = `profiles.discipline`; thresholds live in a single
+  option (`sslms_kpi_thresholds`), org-wide per KPI.
+- Digest rides the existing `sslms_daily_expiry_check` cron as a second listener —
+  a separate email rather than editing SSLMS_Documents (module isolation).
+- "Overdue" sign-offs/hours have no due-date columns, so overdue = still open,
+  bucketed by age (0-7 / 8-14 / 15-30 / 30+ days).
+- The builder stubbed OSPE pass rate (3c did not exist in its context); wired to the
+  real published-exam aggregation at integration time in the main session.

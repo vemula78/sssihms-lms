@@ -465,6 +465,33 @@ as_user( 'student1' );
 $shtml = do_shortcode( '[sslms_scenarios]' );
 ok( is_string( $shtml ) && false !== strpos( $shtml, 'Chest pain triage' ), '3e portal lists scenario and attempts' );
 
+// ---------- Phase 3d: KPI dashboard v2 ----------
+as_user( 'admin' );
+$kpi_c = SSLMS_KPI::compliance();
+ok( is_array( $kpi_c ) && isset( $kpi_c['pct'], $kpi_c['total'] ) && $kpi_c['total'] > 0, '3d compliance KPI computes (' . $kpi_c['valid'] . '/' . $kpi_c['total'] . ')' );
+$kpi_o = SSLMS_KPI::ospe_pass_rate();
+// Both candidates pass after the moderation uplift in the 3c section → 100%.
+ok( is_array( $kpi_o ) && 100.0 === (float) $kpi_o['pct'] && 2 === $kpi_o['total'], '3d OSPE pass rate wired to published 3c data (got ' . var_export( $kpi_o['pct'] ?? null, true ) . '%)' );
+$kpi_f = SSLMS_KPI::expiring_forecast();
+ok( isset( $kpi_f['d30'], $kpi_f['d60'], $kpi_f['d90'] ) && $kpi_f['d30'] <= $kpi_f['d60'] && $kpi_f['d60'] <= $kpi_f['d90'], '3d expiring forecast cumulative 30/60/90' );
+SSLMS_KPI::update_thresholds( array( 'compliance_pct' => 99.5 ) );
+$alerts = SSLMS_KPI::evaluate_alerts( SSLMS_KPI::org_wide_values() );
+$hit = false;
+foreach ( $alerts as $a ) { if ( 'compliance_pct' === $a['key'] ) { $hit = true; } }
+ok( $hit || 99.5 <= (float) $kpi_c['pct'], '3d threshold breach detected for compliance < 99.5' );
+SSLMS_KPI::update_thresholds( array( 'compliance_pct' => '' ) );
+$r = rest( 'GET', '/sslms/v1/dashboard/kpis' );
+$dash = $r->get_data();
+ok( 200 === $r->get_status() && ! empty( $dash['data']['cards'] ) && isset( $dash['data']['charts'] ), '3d KPI polling endpoint returns cards + charts' );
+as_user( 'student1' );
+$r = rest( 'GET', '/sslms/v1/dashboard/kpis' );
+ok( $r->get_status() >= 400, '3d learner cannot poll KPI endpoint (got ' . $r->get_status() . ')' );
+$r = rest( 'GET', '/sslms/v1/dashboard/thresholds' );
+ok( $r->get_status() >= 400, '3d learner cannot read thresholds (got ' . $r->get_status() . ')' );
+as_user( 'instructor1' );
+$r = rest( 'PUT', '/sslms/v1/dashboard/thresholds', array( 'compliance_pct' => 1 ) );
+ok( $r->get_status() >= 400, '3d instructor cannot set thresholds (manage only, got ' . $r->get_status() . ')' );
+
 // ---------- Audit 23-Jul-2026 regression fixes ----------
 // Finding 1: instructor (author_courses) must NOT view another learner's credential doc
 as_user( 'admin' );
