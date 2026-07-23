@@ -465,6 +465,34 @@ as_user( 'student1' );
 $shtml = do_shortcode( '[sslms_scenarios]' );
 ok( is_string( $shtml ) && false !== strpos( $shtml, 'Chest pain triage' ), '3e portal lists scenario and attempts' );
 
+// ---------- Audit 23-Jul-2026 regression fixes ----------
+// Finding 1: instructor (author_courses) must NOT view another learner's credential doc
+as_user( 'admin' );
+$doc_row = $wpdb->get_row( "SELECT * FROM {$wpdb->prefix}sslms_documents WHERE user_id = {$student} LIMIT 1" );
+if ( $doc_row ) {
+	ok( false === SSLMS_Documents::can_view( $doc_row, $inst ), 'AUDIT-1 instructor cannot view unrelated learner credential doc' );
+	ok( true === SSLMS_Documents::can_view( $doc_row, $student ), 'AUDIT-1 owner can still view own doc' );
+	ok( true === SSLMS_Documents::can_view( $doc_row, $admin ), 'AUDIT-1 admin can still view doc' );
+}
+// Findings 2+3: rotation object-level scoping
+$other_rot = SSLMS_Hours::create_rotation( $student2, 'Radiology', '2026-08-01', '2026-08-31', $prec, 10 );
+as_user( 'instructor1' );
+$r = rest( 'GET', "/sslms/v1/rotations/{$other_rot}" );
+ok( $r->get_status() >= 400 || ( isset( $r->get_data()['data']->user_id ) && false ), 'AUDIT-2 instructor with enroll cap cannot read unrelated rotation (got ' . $r->get_status() . ')' );
+$r = rest( 'PUT', "/sslms/v1/rotations/{$other_rot}", array( 'required_hours' => 1 ) );
+ok( $r->get_status() >= 400, 'AUDIT-3 enrollment manager cannot edit unrelated rotation (got ' . $r->get_status() . ')' );
+$r = rest( 'DELETE', "/sslms/v1/rotations/{$other_rot}" );
+ok( $r->get_status() >= 400, 'AUDIT-3 enrollment manager cannot delete unrelated rotation (got ' . $r->get_status() . ')' );
+as_user( 'student2' );
+$r = rest( 'GET', "/sslms/v1/rotations/{$other_rot}" );
+ok( 200 === $r->get_status(), 'AUDIT-2 owner still reads own rotation (got ' . $r->get_status() . ')' );
+as_user( 'preceptor1' );
+$r = rest( 'GET', "/sslms/v1/rotations/{$other_rot}" );
+ok( 200 === $r->get_status(), 'AUDIT-2 assigned preceptor still reads rotation (got ' . $r->get_status() . ')' );
+as_user( 'admin' );
+$r = rest( 'DELETE', "/sslms/v1/rotations/{$other_rot}" );
+ok( 200 === $r->get_status(), 'AUDIT-3 admin can still delete unused rotation (got ' . $r->get_status() . ')' );
+
 // ---------- F10: audit ----------
 $n = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->prefix}sslms_audit_log" );
 ok( $n >= 10, "F10 audit log populated ($n rows)" );

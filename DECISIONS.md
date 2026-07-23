@@ -141,3 +141,12 @@
 - **Phase 3f (live AI simulated patient) deliberately not built** — per roadmap it is
   gated on hospital budget/policy sign-off; the Phase 2 integrations registry is the
   intended attachment point when approved.
+
+## Codex audit fixes (23-Jul-2026, see AUDIT-FINDINGS.md)
+
+- **Credential documents**: viewable by owner + `sslms_manage` only; the
+  `sslms_author_courses` blanket access removed (DPDP minimisation).
+- **Rotations**: reads scoped to owner / assigned reviewer / `sslms_manage` — the
+  `sslms_view_reports` bypass was also removed from rotation reads and both hour-CSV
+  exports because it recreated the same leak for instructors; rotation edit/delete is
+  now `sslms_manage` only (creation stays with `sslms_enroll_learners`).

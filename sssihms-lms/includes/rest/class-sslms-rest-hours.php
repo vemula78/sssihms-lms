@@ -40,13 +40,13 @@ class SSLMS_REST_Hours extends SSLMS_REST_Base {
 			array(
 				'methods'             => 'GET',
 				'callback'            => array( __CLASS__, 'get_rotation' ),
-				'permission_callback' => self::can( 'sslms_enroll_learners' ),
+				'permission_callback' => self::can_any( array( 'sslms_learn', 'sslms_approve_hours', 'sslms_enroll_learners', 'sslms_manage' ) ),
 				'args'                => array( 'id' => array( 'validate_callback' => array( __CLASS__, 'is_posint' ) ) ),
 			),
 			array(
 				'methods'             => 'PUT',
 				'callback'            => array( __CLASS__, 'update_rotation' ),
-				'permission_callback' => self::can( 'sslms_enroll_learners' ),
+				'permission_callback' => self::can( 'sslms_manage' ),
 				'args'                => array(
 					'id'             => array( 'validate_callback' => array( __CLASS__, 'is_posint' ) ),
 					'department'     => array( 'required' => false, 'type' => 'string', 'sanitize_callback' => 'sanitize_text_field' ),
@@ -59,7 +59,7 @@ class SSLMS_REST_Hours extends SSLMS_REST_Base {
 			array(
 				'methods'             => 'DELETE',
 				'callback'            => array( __CLASS__, 'delete_rotation' ),
-				'permission_callback' => self::can( 'sslms_enroll_learners' ),
+				'permission_callback' => self::can( 'sslms_manage' ),
 				'args'                => array( 'id' => array( 'validate_callback' => array( __CLASS__, 'is_posint' ) ) ),
 			),
 		) );
@@ -168,6 +168,14 @@ class SSLMS_REST_Hours extends SSLMS_REST_Base {
 			$args['preceptor_id'] = (int) $req->get_param( 'preceptor_id' );
 		}
 		$rows = SSLMS_Hours::list_rotations( $args );
+		// Object-level scoping: without manage/view_reports the caller sees
+		// only rotations they own or review (audit finding 2026-07-23).
+		if ( ! current_user_can( 'sslms_manage' ) ) {
+			$uid  = get_current_user_id();
+			$rows = array_values( array_filter( $rows, static function ( $r ) use ( $uid ) {
+				return (int) $r->user_id === $uid || SSLMS_Hours::reviewer_in_scope( $r, $uid );
+			} ) );
+		}
 		foreach ( $rows as $r ) {
 			$r->totals = SSLMS_Hours::totals( (int) $r->id );
 		}
@@ -177,6 +185,15 @@ class SSLMS_REST_Hours extends SSLMS_REST_Base {
 	public static function get_rotation( WP_REST_Request $req ) {
 		$r = SSLMS_Hours::get_rotation( (int) $req['id'] );
 		if ( ! $r ) {
+			return self::fail( 'sslms_not_found', 'Rotation not found.', 404 );
+		}
+		// Object-level scoping (audit finding 2026-07-23): owner, assigned
+		// reviewer, reports, or admin — never just any enrollment manager.
+		$uid     = get_current_user_id();
+		$allowed = current_user_can( 'sslms_manage' )
+			|| (int) $r->user_id === $uid
+			|| SSLMS_Hours::reviewer_in_scope( $r, $uid );
+		if ( ! $allowed ) {
 			return self::fail( 'sslms_not_found', 'Rotation not found.', 404 );
 		}
 		$r->totals = SSLMS_Hours::totals( (int) $r->id );
@@ -297,7 +314,7 @@ class SSLMS_REST_Hours extends SSLMS_REST_Base {
 	public static function export_learner( WP_REST_Request $req ) {
 		$target = (int) $req['user_id'];
 		$uid    = get_current_user_id();
-		$allowed = current_user_can( 'sslms_manage' ) || current_user_can( 'sslms_view_reports' ) || $target === $uid;
+		$allowed = current_user_can( 'sslms_manage' ) || $target === $uid;
 		if ( ! $allowed ) {
 			foreach ( SSLMS_Hours::list_rotations( array( 'user_id' => $target ) ) as $rotation ) {
 				if ( SSLMS_Hours::reviewer_in_scope( $rotation, $uid ) ) {
@@ -325,7 +342,6 @@ class SSLMS_REST_Hours extends SSLMS_REST_Base {
 		}
 		$uid     = get_current_user_id();
 		$allowed = current_user_can( 'sslms_manage' )
-			|| current_user_can( 'sslms_view_reports' )
 			|| (int) $rotation->user_id === $uid
 			|| SSLMS_Hours::reviewer_in_scope( $rotation, $uid );
 		if ( ! $allowed ) {

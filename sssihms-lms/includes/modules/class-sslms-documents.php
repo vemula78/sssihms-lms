@@ -182,10 +182,9 @@ class SSLMS_Documents {
 		if ( (int) $doc->user_id === $viewer_id ) {
 			return true;
 		}
+		// Owner + LMS administrators only (DPDP data minimisation) — course
+		// authors have no business reading learners' credential documents.
 		if ( user_can( $viewer_id, 'sslms_manage' ) ) {
-			return true;
-		}
-		if ( user_can( $viewer_id, 'sslms_author_courses' ) ) {
 			return true;
 		}
 		return false;
