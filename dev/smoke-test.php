@@ -302,6 +302,56 @@ ok( 200 === $r->get_status() && ! empty( $mine['data'] ), '3a learner lists own 
 $ahtml = do_shortcode( '[sslms_my_assessments]' );
 ok( is_string( $ahtml ) && false !== strpos( $ahtml, 'IV Cannulation DOPS' ), '3a portal page shows learner\'s assessment' );
 
+// ---------- Phase 3b: competency framework + passport ----------
+as_user( 'admin' );
+$domain_id = SSLMS_Competencies::create_competency( array( 'title' => 'Clinical care & safety', 'discipline' => 'Nursing' ) );
+$comp_id   = SSLMS_Competencies::create_competency( array( 'title' => 'IV therapy competence', 'discipline' => 'Nursing', 'parent_id' => $domain_id, 'code' => 'N-CC-01' ) );
+ok( is_int( $domain_id ) && is_int( $comp_id ), '3b domain + competency created' );
+
+// map evidence: the 3a rubric (passed+signed) and the BLS quiz (student1 passed earlier)
+$map1 = SSLMS_Competencies::add_mapping( $comp_id, 'rubric', $rubric_id, $admin );
+$map2 = SSLMS_Competencies::add_mapping( $comp_id, 'quiz', $quiz_id, $admin );
+ok( ! is_wp_error( $map1 ) && ! is_wp_error( $map2 ), '3b evidence mapped (rubric + quiz)' );
+ok( is_wp_error( SSLMS_Competencies::add_mapping( $comp_id, 'rubric', $rubric_id, $admin ) ), '3b duplicate mapping rejected' );
+ok( is_wp_error( SSLMS_Competencies::add_mapping( $comp_id, 'quiz', 999999, $admin ) ), '3b mapping to nonexistent object rejected' );
+
+// retroactive evidence: student1 already passed both → evidence_complete
+$st = SSLMS_Competencies::status_for_user( $comp_id, $student );
+ok( 'evidence_complete' === $st->state && 2 === $st->satisfied, '3b existing evidence counts retroactively (state=' . $st->state . ')' );
+// student2 has neither → not_yet
+$st2 = SSLMS_Competencies::status_for_user( $comp_id, $student2 );
+ok( 'not_yet' === $st2->state, '3b learner without evidence shows not_yet' );
+
+// attainment sign-off is human + sslms_manage only
+ok( is_wp_error( SSLMS_Competencies::sign_attainment( $comp_id, $student, 'competent', '', $prec ) ), '3b preceptor cannot sign attainment (manage only)' );
+ok( is_wp_error( SSLMS_Competencies::sign_attainment( $comp_id, $student, 'expert', '', $admin ) ), '3b invalid attainment level rejected' );
+$att = SSLMS_Competencies::sign_attainment( $comp_id, $student, 'competent', 'Observed twice on ward', $admin );
+ok( ! is_wp_error( $att ), '3b educator signs attainment' );
+$st = SSLMS_Competencies::status_for_user( $comp_id, $student );
+ok( $st->attained && 'competent' === $st->attained->level, '3b latest attainment reflected in status' );
+
+// retention: competency with attainment cannot be deleted
+ok( is_wp_error( SSLMS_Competencies::delete_competency( $comp_id ) ), '3b competency with signed attainment cannot be deleted' );
+ok( is_wp_error( SSLMS_Competencies::delete_competency( $domain_id ) ), '3b domain with children cannot be deleted' );
+
+// passport REST: own OK; another learner forbidden without manage
+as_user( 'student1' );
+$r = rest( 'GET', '/sslms/v1/competencies/passport' );
+$pdata = $r->get_data();
+ok( 200 === $r->get_status() && ! empty( $pdata['data'] ), '3b learner fetches own passport via REST' );
+$r = rest( 'GET', '/sslms/v1/competencies/passport', array( 'user_id' => $student2 ) );
+ok( $r->get_status() >= 400, '3b learner cannot fetch another learner\'s passport (got ' . $r->get_status() . ')' );
+$phtml = do_shortcode( '[sslms_passport]' );
+ok( is_string( $phtml ) && false !== strpos( $phtml, 'IV therapy competence' ) && false !== strpos( $phtml, 'Attained' ), '3b passport page renders with attained badge' );
+
+// starter set seeds only empty disciplines
+as_user( 'admin' );
+$seeded = SSLMS_Competencies::seed_starter_set( $admin );
+ok( $seeded > 0, "3b starter set seeded ($seeded rows)" );
+$tree_n = count( SSLMS_Competencies::tree( 'Nursing' ) );
+$again  = SSLMS_Competencies::seed_starter_set( $admin );
+ok( count( SSLMS_Competencies::tree( 'Nursing' ) ) === $tree_n, '3b re-seeding does not duplicate or overwrite edited dictionaries' );
+
 // ---------- F10: audit ----------
 $n = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->prefix}sslms_audit_log" );
 ok( $n >= 10, "F10 audit log populated ($n rows)" );

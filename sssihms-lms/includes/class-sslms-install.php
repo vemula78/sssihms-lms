@@ -5,7 +5,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class SSLMS_Install {
 
-	const DB_VERSION = '1.1.0';
+	const DB_VERSION = '1.2.0';
 
 	public static function activate(): void {
 		self::create_tables();
@@ -378,6 +378,46 @@ class SSLMS_Install {
   UNIQUE KEY record_criterion (record_id,criterion_id)
 ) $c;";
 
+		// Phase 3b — competency framework + learner passport (ROADMAP-PHASE3.md).
+		$sql[] = "CREATE TABLE {$p}competencies (
+  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  parent_id bigint(20) unsigned NOT NULL DEFAULT 0,
+  discipline varchar(100) NOT NULL DEFAULT '',
+  code varchar(30) NOT NULL DEFAULT '',
+  title varchar(200) NOT NULL,
+  description text,
+  sort_order int(11) NOT NULL DEFAULT 0,
+  is_active tinyint(1) NOT NULL DEFAULT 1,
+  PRIMARY KEY  (id),
+  KEY parent_id (parent_id),
+  KEY discipline (discipline)
+) $c;";
+
+		$sql[] = "CREATE TABLE {$p}competency_map (
+  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  competency_id bigint(20) unsigned NOT NULL,
+  object_type varchar(30) NOT NULL,
+  object_id bigint(20) unsigned NOT NULL,
+  created_by bigint(20) unsigned NOT NULL DEFAULT 0,
+  created_at datetime NOT NULL,
+  PRIMARY KEY  (id),
+  UNIQUE KEY map (competency_id,object_type,object_id),
+  KEY object (object_type,object_id)
+) $c;";
+
+		$sql[] = "CREATE TABLE {$p}competency_attainments (
+  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  competency_id bigint(20) unsigned NOT NULL,
+  user_id bigint(20) unsigned NOT NULL,
+  level varchar(20) NOT NULL,
+  note text,
+  signed_by bigint(20) unsigned NOT NULL,
+  signed_at datetime NOT NULL,
+  PRIMARY KEY  (id),
+  KEY comp_user (competency_id,user_id),
+  KEY user_id (user_id)
+) $c;";
+
 		foreach ( $sql as $statement ) {
 			dbDelta( $statement );
 		}
@@ -395,6 +435,7 @@ class SSLMS_Install {
 			'my_documents' => array( 'My Documents', '[sslms_my_documents]' ),
 			'my_certificates' => array( 'My Certificates', '[sslms_my_certificates]' ),
 			'my_assessments' => array( 'My Assessments', '[sslms_my_assessments]' ),
+			'passport'       => array( 'Competency Passport', '[sslms_passport]' ),
 			'verify'       => array( 'Verify Certificate', '[sslms_verify_certificate]' ),
 		);
 	}

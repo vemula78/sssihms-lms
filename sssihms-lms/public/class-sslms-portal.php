@@ -49,6 +49,7 @@ class SSLMS_Portal {
 			'my_courses'      => 'Courses',
 			'my_checklists'   => 'Checklists',
 			'my_assessments'  => 'Assessments',
+			'passport'        => 'Passport',
 			'my_hours'        => 'Hours',
 			'my_journal'      => 'Journal',
 			'my_documents'    => 'Documents',

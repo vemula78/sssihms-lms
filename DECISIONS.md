@@ -81,3 +81,20 @@
 - **Signed records are immutable for everyone including admins** (no unlock, unlike
   checklists): re-assessment is a new record, matching workplace-based-assessment
   practice and NABH expectations.
+
+## Phase 3b decisions (23-Jul-2026)
+
+- **Three new tables** per roadmap: `competencies` (hierarchical via parent_id, per
+  discipline), `competency_map` (evidence tagging), `competency_attainments`
+  (append-only sign-off history, latest row wins). DB_VERSION 1.2.0.
+- **Attainment is computed on read, never stored** for the evidence side — so existing
+  quiz attempts, sign-offs, assessments and hour logs participate retroactively with
+  zero migration. Only the human-signed LEVEL is stored, and only sslms_manage may
+  sign it (never automatic, per roadmap).
+- **Evidence-satisfied definitions**: quiz = any passed attempt; checklist item =
+  'competent' sign-off; rubric = signed record with outcome pass; rubric criterion =
+  scored at that criterion's top-marks level in any signed record; rotation = approved
+  hours ≥ required hours. Versioning of the dictionary deferred — is_active +
+  append-only attainments cover the audit need for now; flagged for review in 3c.
+- **Starter set seeds only empty disciplines** and never overwrites an edited
+  dictionary; it is a convenience import, not a sync.
