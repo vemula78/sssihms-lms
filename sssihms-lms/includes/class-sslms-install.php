@@ -5,7 +5,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class SSLMS_Install {
 
-	const DB_VERSION = '1.0.0';
+	const DB_VERSION = '1.1.0';
 
 	public static function activate(): void {
 		self::create_tables();
@@ -27,6 +27,8 @@ class SSLMS_Install {
 		if ( get_option( 'sslms_db_version' ) !== self::DB_VERSION ) {
 			self::create_tables();
 			SSLMS_Roles::install();
+			// Too early for wp_insert_post here (plugins_loaded, $wp_rewrite not ready).
+			add_action( 'init', array( __CLASS__, 'create_pages' ) );
 			update_option( 'sslms_db_version', self::DB_VERSION );
 		}
 	}
@@ -308,6 +310,74 @@ class SSLMS_Install {
   KEY created_at (created_at)
 ) $c;";
 
+		// Phase 3a — rubrics engine + multi-source assessment records (ROADMAP-PHASE3.md).
+		$sql[] = "CREATE TABLE {$p}rubrics (
+  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  title varchar(200) NOT NULL,
+  form_type varchar(30) NOT NULL DEFAULT 'custom',
+  discipline varchar(100) NOT NULL DEFAULT '',
+  description text,
+  pass_pct decimal(5,2) NOT NULL DEFAULT 0,
+  is_active tinyint(1) NOT NULL DEFAULT 1,
+  created_by bigint(20) unsigned NOT NULL DEFAULT 0,
+  created_at datetime NOT NULL,
+  PRIMARY KEY  (id),
+  KEY is_active (is_active)
+) $c;";
+
+		$sql[] = "CREATE TABLE {$p}rubric_criteria (
+  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  rubric_id bigint(20) unsigned NOT NULL,
+  criterion_text text NOT NULL,
+  weight decimal(6,2) NOT NULL DEFAULT 1,
+  is_critical tinyint(1) NOT NULL DEFAULT 0,
+  sort_order int(11) NOT NULL DEFAULT 0,
+  PRIMARY KEY  (id),
+  KEY rubric_id (rubric_id)
+) $c;";
+
+		$sql[] = "CREATE TABLE {$p}rubric_levels (
+  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  criterion_id bigint(20) unsigned NOT NULL,
+  level_index int(11) NOT NULL DEFAULT 0,
+  label varchar(100) NOT NULL,
+  descriptor text,
+  marks decimal(6,2) NOT NULL DEFAULT 0,
+  PRIMARY KEY  (id),
+  KEY criterion_id (criterion_id)
+) $c;";
+
+		$sql[] = "CREATE TABLE {$p}assessment_records (
+  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  rubric_id bigint(20) unsigned NOT NULL,
+  learner_id bigint(20) unsigned NOT NULL,
+  assessor_id bigint(20) unsigned NOT NULL,
+  assessor_role varchar(20) NOT NULL DEFAULT '',
+  context varchar(200) NOT NULL DEFAULT '',
+  feedback text,
+  score_pct decimal(5,2) DEFAULT NULL,
+  critical_failed tinyint(1) NOT NULL DEFAULT 0,
+  outcome varchar(10) NOT NULL DEFAULT '',
+  status varchar(10) NOT NULL DEFAULT 'draft',
+  created_at datetime NOT NULL,
+  signed_at datetime DEFAULT NULL,
+  PRIMARY KEY  (id),
+  KEY learner_id (learner_id),
+  KEY assessor_status (assessor_id,status),
+  KEY rubric_id (rubric_id)
+) $c;";
+
+		$sql[] = "CREATE TABLE {$p}assessment_scores (
+  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  record_id bigint(20) unsigned NOT NULL,
+  criterion_id bigint(20) unsigned NOT NULL,
+  level_id bigint(20) unsigned NOT NULL,
+  marks decimal(6,2) NOT NULL DEFAULT 0,
+  note text,
+  PRIMARY KEY  (id),
+  UNIQUE KEY record_criterion (record_id,criterion_id)
+) $c;";
+
 		foreach ( $sql as $statement ) {
 			dbDelta( $statement );
 		}
@@ -324,11 +394,12 @@ class SSLMS_Install {
 			'my_journal'   => array( 'My Journal', '[sslms_my_journal]' ),
 			'my_documents' => array( 'My Documents', '[sslms_my_documents]' ),
 			'my_certificates' => array( 'My Certificates', '[sslms_my_certificates]' ),
+			'my_assessments' => array( 'My Assessments', '[sslms_my_assessments]' ),
 			'verify'       => array( 'Verify Certificate', '[sslms_verify_certificate]' ),
 		);
 	}
 
-	private static function create_pages(): void {
+	public static function create_pages(): void {
 		$ids = get_option( 'sslms_pages', array() );
 		foreach ( self::pages() as $key => $def ) {
 			if ( ! empty( $ids[ $key ] ) && get_post_status( $ids[ $key ] ) ) {

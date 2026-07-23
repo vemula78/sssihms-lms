@@ -48,6 +48,7 @@ class SSLMS_Portal {
 			'dashboard'       => 'Home',
 			'my_courses'      => 'Courses',
 			'my_checklists'   => 'Checklists',
+			'my_assessments'  => 'Assessments',
 			'my_hours'        => 'Hours',
 			'my_journal'      => 'Journal',
 			'my_documents'    => 'Documents',

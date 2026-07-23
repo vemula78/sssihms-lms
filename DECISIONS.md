@@ -52,3 +52,32 @@
   decision is separately audit-logged, so the history is traceable.
 - **Preceptor relationship** requires the sslms_approve_hours capability specifically
   (evaluator-only users no longer qualify as "preceptor").
+
+## Phase 3a decisions (23-Jul-2026)
+
+- **Schema unfrozen deliberately for Phase 3** per ROADMAP-PHASE3.md: five new tables
+  added under the same `sslms_` prefix — `rubrics`, `rubric_criteria`, `rubric_levels`,
+  `assessment_records`, `assessment_scores`. DB_VERSION bumped to 1.1.0; the existing
+  dbDelta upgrade path handles live sites, and page creation during upgrade is deferred
+  to `init` (running `wp_insert_post` at `plugins_loaded` fatals — found by smoke test).
+- **`assessment_forms` folded into `rubrics.form_type`** (mini_cex / dops /
+  professionalism / communication / ward_feedback / custom) instead of a sixth table —
+  a form in the roadmap's sense is exactly one typed rubric; a separate table added a
+  join with no data of its own.
+- **Level descriptors live per criterion-level cell** (`rubric_levels.criterion_id`),
+  not per rubric-wide level, so each cell of the criteria × levels grid can carry its
+  own behavioural descriptor as the roadmap requires.
+- **Critical-fail rule**: a criterion flagged critical fails the whole assessment when
+  the selected level is that criterion's bottom (minimum-marks) level and the criterion
+  has more than one level. Signing a failed assessment is allowed — a record of unsafe
+  practice is itself a required record.
+- **Multi-source scoping**: self-assessment is always permitted on oneself
+  (`sslms_learn`); any other source requires an explicit `relationships` row
+  (preceptor / evaluator / mentor / peer — `peer` is a new accepted rel_type value,
+  no schema change); `sslms_manage` assesses anyone as source `educator`.
+- **Draft privacy**: unsigned drafts are visible to their assessor (and admins via the
+  record-view gate) but hidden from the learner's portal list until signed, so a
+  half-scored observation is never mistaken for feedback.
+- **Signed records are immutable for everyone including admins** (no unlock, unlike
+  checklists): re-assessment is a new record, matching workplace-based-assessment
+  practice and NABH expectations.

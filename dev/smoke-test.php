@@ -240,6 +240,68 @@ ok( $r->get_status() >= 400, 'F9.5/DPDP instructor cannot pull global compliance
 $r = rest( 'PUT', "/sslms/v1/quizzes/{$quiz_id}", array( 'course_id' => $course_id, 'bank_id' => $bank_id, 'title' => 'tampered', 'num_questions' => 1, 'pass_pct' => 1 ) );
 ok( $r->get_status() >= 400, 'N1 non-owner instructor cannot edit another\'s quiz (got ' . $r->get_status() . ')' );
 
+// ---------- Phase 3a: rubrics + multi-source assessments ----------
+as_user( 'admin' );
+$rubric_id = SSLMS_Rubrics::create_rubric( array( 'title' => 'IV Cannulation DOPS', 'form_type' => 'dops', 'discipline' => 'Nursing', 'pass_pct' => 60 ), $admin );
+ok( is_int( $rubric_id ) && $rubric_id > 0, '3a rubric created' );
+$crit1 = SSLMS_Rubrics::add_criterion( $rubric_id, 'Aseptic technique', 2, true );
+$crit2 = SSLMS_Rubrics::add_criterion( $rubric_id, 'Communication with patient', 1, false );
+$c1_low  = SSLMS_Rubrics::add_level( $crit1, 'Unsafe', 'Breaks asepsis', 0 );
+$c1_high = SSLMS_Rubrics::add_level( $crit1, 'Competent', 'Maintains asepsis throughout', 10 );
+$c2_low  = SSLMS_Rubrics::add_level( $crit2, 'Poor', 'No explanation given', 2 );
+$c2_high = SSLMS_Rubrics::add_level( $crit2, 'Good', 'Explains and reassures', 10 );
+ok( $crit1 && $crit2 && $c1_low && $c1_high && $c2_low && $c2_high, '3a criteria (1 critical) + levels created' );
+
+// scoping: unrelated learner cannot assess another learner
+$bad = SSLMS_Rubrics::open_record( $rubric_id, $student, $student2 );
+ok( is_wp_error( $bad ), '3a unrelated user cannot open assessment on another learner' );
+// self-assessment allowed, source recorded
+$self_rec = SSLMS_Rubrics::open_record( $rubric_id, $student, $student );
+ok( ! is_wp_error( $self_rec ) && 'self' === SSLMS_Rubrics::get_record( $self_rec )->assessor_role, '3a self-assessment opens with source=self' );
+SSLMS_Rubrics::delete_record( $self_rec, $student );
+// preceptor in scope opens a record
+$rec = SSLMS_Rubrics::open_record( $rubric_id, $student, $prec );
+ok( ! is_wp_error( $rec ) && 'preceptor' === SSLMS_Rubrics::get_record( $rec )->assessor_role, '3a preceptor opens assessment with source=preceptor' );
+
+// cannot sign before all criteria scored
+$early = SSLMS_Rubrics::sign_record( $rec, 'x', $prec );
+ok( is_wp_error( $early ), '3a cannot sign an incomplete assessment' );
+// only the assessor may score
+$hijack = SSLMS_Rubrics::score_criterion( $rec, $crit1, $c1_high, '', $ment );
+ok( is_wp_error( $hijack ), '3a another user cannot score someone else\'s draft' );
+// critical-fail: bottom level on critical criterion fails despite good total
+SSLMS_Rubrics::score_criterion( $rec, $crit1, $c1_low, 'broke asepsis', $prec );
+SSLMS_Rubrics::score_criterion( $rec, $crit2, $c2_high, '', $prec );
+$row = SSLMS_Rubrics::get_record( $rec );
+ok( 'fail' === $row->outcome && 1 === (int) $row->critical_failed, '3a critical criterion at bottom level = fail regardless of total' );
+// re-score to competent → weighted pass (2*1 + 1*1)/3 = 100%
+SSLMS_Rubrics::score_criterion( $rec, $crit1, $c1_high, 'clean', $prec );
+$row = SSLMS_Rubrics::get_record( $rec );
+ok( 'pass' === $row->outcome && (float) $row->score_pct >= 60, '3a weighted score computes and passes (' . $row->score_pct . '%)' );
+$signed = SSLMS_Rubrics::sign_record( $rec, 'Well done, safe technique.', $prec );
+ok( ! is_wp_error( $signed ), '3a assessor signs record' );
+
+// immutability after signing
+ok( is_wp_error( SSLMS_Rubrics::score_criterion( $rec, $crit2, $c2_low, '', $prec ) ), '3a signed record cannot be re-scored' );
+ok( is_wp_error( SSLMS_Rubrics::delete_record( $rec, $admin ) ), '3a signed record cannot be deleted even by admin (NABH)' );
+ok( is_wp_error( SSLMS_Rubrics::delete_rubric( $rubric_id ) ), '3a rubric with records cannot be deleted' );
+ok( is_wp_error( SSLMS_Rubrics::delete_criterion( $crit1 ) ), '3a scored criterion cannot be deleted' );
+
+// visibility: learner + assessor + admin yes, unrelated learner no
+$row = SSLMS_Rubrics::get_record( $rec );
+ok( SSLMS_Rubrics::user_can_view_record( $row, $student ), '3a learner can view own signed record' );
+ok( SSLMS_Rubrics::user_can_view_record( $row, $prec ), '3a assessor can view own record' );
+ok( ! SSLMS_Rubrics::user_can_view_record( $row, $student2 ), '3a unrelated learner cannot view record' );
+as_user( 'student2' );
+$r = rest( 'GET', "/sslms/v1/assessments/{$rec}" );
+ok( $r->get_status() >= 400, '3a REST hides record from unrelated user (got ' . $r->get_status() . ')' );
+as_user( 'student1' );
+$r = rest( 'GET', '/sslms/v1/assessments/mine' );
+$mine = $r->get_data();
+ok( 200 === $r->get_status() && ! empty( $mine['data'] ), '3a learner lists own assessments via REST' );
+$ahtml = do_shortcode( '[sslms_my_assessments]' );
+ok( is_string( $ahtml ) && false !== strpos( $ahtml, 'IV Cannulation DOPS' ), '3a portal page shows learner\'s assessment' );
+
 // ---------- F10: audit ----------
 $n = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->prefix}sslms_audit_log" );
 ok( $n >= 10, "F10 audit log populated ($n rows)" );
