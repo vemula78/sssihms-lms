@@ -116,6 +116,25 @@ $inst = get_user_by( 'login', 'instructor1' )->ID;
 SSLMS_DB::insert( 'relationships', array( 'user_id' => $student, 'related_user_id' => $prec, 'rel_type' => 'preceptor', 'created_by' => $admin, 'created_at' => SSLMS_DB::now() ) );
 SSLMS_DB::insert( 'relationships', array( 'user_id' => $student, 'related_user_id' => $ment, 'rel_type' => 'mentor', 'created_by' => $admin, 'created_at' => SSLMS_DB::now() ) );
 
+// Comparative quiz aggregates stay hidden until the privacy threshold is met.
+foreach ( array( $student2 => 60, $prec => 70, $ment => 80 ) as $aggregate_user => $aggregate_score ) {
+	SSLMS_Enrollments::enroll( $course_id, $aggregate_user, $admin );
+	SSLMS_DB::insert( 'quiz_attempts', array(
+		'quiz_id' => $quiz_id, 'user_id' => $aggregate_user, 'started_at' => SSLMS_DB::now(),
+		'submitted_at' => SSLMS_DB::now(), 'question_ids' => '[]', 'answers' => '[]',
+		'score_pct' => $aggregate_score, 'passed' => 0,
+	) );
+}
+ok( null === SSLMS_Quizzes::class_average( $quiz_id ), 'F3 class average hidden for a four-learner cohort' );
+SSLMS_Enrollments::enroll( $course_id, $eval, $admin );
+SSLMS_DB::insert( 'quiz_attempts', array(
+	'quiz_id' => $quiz_id, 'user_id' => $eval, 'started_at' => SSLMS_DB::now(),
+	'submitted_at' => SSLMS_DB::now(), 'question_ids' => '[]', 'answers' => '[]',
+	'score_pct' => 90, 'passed' => 1,
+) );
+$class_average = SSLMS_Quizzes::class_average( $quiz_id );
+ok( null !== $class_average && abs( $class_average - 80 ) < 0.01, 'F3 class average shown at five learners' );
+
 // ---------- F6: checklists ----------
 $cl = SSLMS_Checklists::create_checklist( 'IV Cannulation', 'Nursing', 'Peripheral IV insertion competency' );
 $i1 = SSLMS_Checklists::add_item( $cl, 'Hand hygiene & PPE' );
@@ -233,10 +252,25 @@ ok( 0 === (int) $leak, 'F8.2/F10 audit summaries contain no journal content' );
 
 // ---------- portal shortcodes render ----------
 wp_set_current_user( $student );
+$optional_quiz = SSLMS_DB::insert( 'quizzes', array(
+	'course_id' => $course_id, 'lesson_id' => null, 'bank_id' => $bank_id,
+	'title' => 'Optional practice', 'num_questions' => 1, 'pass_pct' => 50,
+	'max_attempts' => 0, 'time_limit_min' => 0, 'is_required' => 0,
+) );
+ok( $optional_quiz > 0, 'F3 optional assessment created for portal summary test' );
 foreach ( array( 'sslms_dashboard', 'sslms_my_courses', 'sslms_my_checklists', 'sslms_my_hours', 'sslms_my_journal', 'sslms_my_documents', 'sslms_my_certificates' ) as $sc ) {
 	$html = do_shortcode( '[' . $sc . ']' );
 	ok( is_string( $html ) && strlen( $html ) > 100 && strpos( $html, 'sslms' ) !== false, "F12 [$sc] renders" );
+	if ( 'sslms_my_courses' === $sc ) {
+		ok( false !== strpos( $html, '1 / 1 required assessments passed' ), 'F12 course summary distinguishes required from optional assessments' );
+	}
 }
+SSLMS_Courses::update_lesson( $les2, array( 'video_url' => 'https://drive.google.com/open?id=1AbCdEfGhIjKlMnOpQrStUvWxYz' ) );
+$_GET['course'] = $course_id;
+$_GET['lesson'] = $les2;
+$course_html = do_shortcode( '[sslms_course]' );
+ok( false !== strpos( $course_html, 'drive.google.com/file/d/1AbCdEfGhIjKlMnOpQrStUvWxYz/preview' ), 'F12 Google Drive open?id video renders through preview player' );
+unset( $_GET['course'], $_GET['lesson'] );
 wp_set_current_user( 0 );
 $vhtml = do_shortcode( '[sslms_verify_certificate]' );
 ok( is_string( $vhtml ) && strlen( $vhtml ) > 50, 'F5.3 verify page renders for anonymous' );
