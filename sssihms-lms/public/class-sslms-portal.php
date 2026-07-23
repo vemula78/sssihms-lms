@@ -50,6 +50,7 @@ class SSLMS_Portal {
 			'my_checklists'   => 'Checklists',
 			'my_assessments'  => 'Assessments',
 			'passport'        => 'Passport',
+			'my_ospe'         => 'OSPE',
 			'my_hours'        => 'Hours',
 			'my_journal'      => 'Journal',
 			'my_documents'    => 'Documents',

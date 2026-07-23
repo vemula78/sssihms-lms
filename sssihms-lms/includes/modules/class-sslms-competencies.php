@@ -19,7 +19,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 class SSLMS_Competencies {
 
-	const OBJECT_TYPES = array( 'quiz', 'checklist_item', 'rubric', 'rubric_criterion', 'rotation' );
+	const OBJECT_TYPES = array( 'quiz', 'checklist_item', 'rubric', 'rubric_criterion', 'rotation', 'ospe_station' );
 	const LEVELS       = array( 'novice', 'competent', 'proficient' );
 
 	/* ---------------------------------------------------------------
@@ -194,6 +194,7 @@ class SSLMS_Competencies {
 			'rubric'           => 'rubrics',
 			'rubric_criterion' => 'rubric_criteria',
 			'rotation'         => 'rotations',
+			'ospe_station'     => 'ospe_stations',
 		)[ $type ];
 		return (bool) SSLMS_DB::get_row( $table, $id );
 	}
@@ -223,6 +224,13 @@ class SSLMS_Competencies {
 			case 'rotation':
 				$row = SSLMS_DB::get_row( 'rotations', $id );
 				return $row ? 'Rotation: ' . $row->department . ' (' . SSLMS_DB::fmt_date( $row->start_date ) . ')' : 'Rotation #' . $id . ' (deleted)';
+			case 'ospe_station':
+				$row = SSLMS_DB::get_row( 'ospe_stations', $id );
+				if ( ! $row ) {
+					return 'OSPE station #' . $id . ' (deleted)';
+				}
+				$exam = SSLMS_DB::get_row( 'ospe_exams', (int) $row->exam_id );
+				return 'OSPE station: ' . $row->title . ( $exam ? ' (' . $exam->title . ')' : '' );
 		}
 		return $type . ' #' . $id;
 	}
@@ -282,6 +290,30 @@ class SSLMS_Competencies {
 					$object_id, $user_id
 				) );
 				return (float) $rot->required_hours > 0 && $hours >= (float) $rot->required_hours;
+			case 'ospe_station':
+				// Satisfied when, in a PUBLISHED exam, the learner met the
+				// exam's minimum-station threshold at this station (>0 marks
+				// when no threshold is configured).
+				$station = SSLMS_DB::get_row( 'ospe_stations', $object_id );
+				if ( ! $station || (float) $station->max_marks <= 0 ) {
+					return false;
+				}
+				$exam = SSLMS_DB::get_row( 'ospe_exams', (int) $station->exam_id );
+				if ( ! $exam || 'published' !== $exam->status ) {
+					return false;
+				}
+				$sc = SSLMS_DB::table( 'ospe_scores' );
+				$oc = SSLMS_DB::table( 'ospe_candidates' );
+				$marks = $wpdb->get_var( $wpdb->prepare(
+					"SELECT s.marks FROM {$sc} s JOIN {$oc} c ON c.id = s.candidate_id
+					 WHERE s.station_id = %d AND c.user_id = %d LIMIT 1",
+					$object_id, $user_id
+				) );
+				if ( null === $marks ) {
+					return false;
+				}
+				$pct = 100 * (float) $marks / (float) $station->max_marks;
+				return (float) $exam->min_station_pct > 0 ? $pct >= (float) $exam->min_station_pct : (float) $marks > 0;
 		}
 		return false;
 	}

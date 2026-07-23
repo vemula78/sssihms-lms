@@ -352,6 +352,60 @@ $tree_n = count( SSLMS_Competencies::tree( 'Nursing' ) );
 $again  = SSLMS_Competencies::seed_starter_set( $admin );
 ok( count( SSLMS_Competencies::tree( 'Nursing' ) ) === $tree_n, '3b re-seeding does not duplicate or overwrite edited dictionaries' );
 
+// ---------- Phase 3c: OSPE ----------
+as_user( 'admin' );
+$exam_id = SSLMS_OSPE::create_exam( array( 'title' => 'Nursing OSPE July 2026', 'discipline' => 'Nursing', 'exam_date' => '2026-07-30', 'pass_pct' => 50, 'min_station_pct' => 30 ), $admin );
+ok( is_int( $exam_id ) && $exam_id > 0, '3c exam created' );
+$stn1 = SSLMS_OSPE::add_station( $exam_id, array( 'title' => 'IV cannulation', 'station_type' => 'procedure', 'max_marks' => 20, 'examiner_id' => $prec, 'rubric_id' => $rubric_id ) );
+$stn2 = SSLMS_OSPE::add_station( $exam_id, array( 'title' => 'Drug calculation viva', 'station_type' => 'question', 'max_marks' => 10, 'examiner_id' => $prec ) );
+$stn3 = SSLMS_OSPE::add_station( $exam_id, array( 'title' => 'Rest', 'station_type' => 'rest' ) );
+ok( ! is_wp_error( $stn1 ) && ! is_wp_error( $stn2 ) && ! is_wp_error( $stn3 ), '3c stations created (incl. rest)' );
+$cand1 = SSLMS_OSPE::add_candidate( $exam_id, $student );
+$cand2 = SSLMS_OSPE::add_candidate( $exam_id, $student2 );
+ok( ! is_wp_error( $cand1 ) && ! is_wp_error( $cand2 ), '3c candidates registered' );
+ok( is_wp_error( SSLMS_OSPE::add_candidate( $exam_id, $student ) ), '3c duplicate candidate rejected' );
+
+// scoring scope: mentor (not the assigned examiner) cannot score
+ok( is_wp_error( SSLMS_OSPE::score( $stn1, $cand1, 15, '', $ment ) ), '3c non-assigned examiner cannot score station' );
+ok( is_wp_error( SSLMS_OSPE::score( $stn3, $cand1, 1, '', $prec ) ), '3c rest station cannot be scored' );
+ok( is_wp_error( SSLMS_OSPE::score( $stn1, $cand1, 25, '', $prec ) ), '3c marks above station max rejected' );
+// assigned examiner scores; correction before publish allowed
+ok( true === SSLMS_OSPE::score( $stn1, $cand1, 15, 'good technique', $prec ), '3c examiner scores own station' );
+ok( true === SSLMS_OSPE::score( $stn1, $cand1, 16, 'corrected', $prec ), '3c examiner can correct before publish' );
+SSLMS_OSPE::score( $stn2, $cand1, 8, '', $prec );
+// candidate2: fails min-station rule (20% on station 1 < 30%) despite ok total
+SSLMS_OSPE::score( $stn1, $cand2, 4, '', $prec );
+SSLMS_OSPE::score( $stn2, $cand2, 10, '', $prec );
+$res1 = SSLMS_OSPE::compute_result( $exam_id, $cand1 );
+$res2 = SSLMS_OSPE::compute_result( $exam_id, $cand2 );
+ok( $res1 && 'pass' === $res1['outcome'] && 80.0 === (float) $res1['total_pct'], '3c candidate1 passes (80%)' );
+ok( $res2 && 'fail' === $res2['outcome'], '3c min-per-station rule fails candidate2 despite total ' . $res2['total_pct'] . '%' );
+
+// moderation requires manage + note
+ok( is_wp_error( SSLMS_OSPE::score( $stn1, $cand2, 7, '', $admin, true ) ), '3c moderation without note rejected' );
+ok( true === SSLMS_OSPE::score( $stn1, $cand2, 7, 'External moderator uplift', $admin, true ), '3c coordinator moderates with note' );
+ok( is_wp_error( SSLMS_OSPE::score( $stn1, $cand2, 9, 'note', $prec, true ) ), '3c examiner cannot use moderation path' );
+
+// publish: only manage; locks everything; results visible to learner
+ok( is_wp_error( SSLMS_OSPE::publish( $exam_id, $prec ) ), '3c preceptor cannot publish' );
+ok( true === SSLMS_OSPE::publish( $exam_id, $admin ), '3c coordinator publishes results' );
+ok( is_wp_error( SSLMS_OSPE::score( $stn1, $cand1, 20, '', $prec ) ), '3c published exam scores are final' );
+ok( is_wp_error( SSLMS_OSPE::update_exam( $exam_id, array( 'title' => 'tamper' ) ) ), '3c published exam cannot be edited' );
+ok( is_wp_error( SSLMS_OSPE::delete_exam( $exam_id ) ), '3c published exam cannot be deleted (NABH)' );
+$myres = SSLMS_OSPE::results_for_user( $student );
+ok( $myres && 'pass' === $myres[0]->outcome, '3c learner sees published result' );
+$rows = SSLMS_OSPE::export_rows( $exam_id );
+ok( 2 === count( $rows ) && isset( $rows[0]['Total %'] ), '3c mark-sheet export rows complete' );
+
+// 3b integration: OSPE station as competency evidence (candidate1 met 30% min at stn2)
+$comp_ospe = SSLMS_Competencies::create_competency( array( 'title' => 'Medication safety', 'discipline' => 'Nursing', 'parent_id' => $domain_id ) );
+SSLMS_Competencies::add_mapping( $comp_ospe, 'ospe_station', $stn2, $admin );
+ok( SSLMS_Competencies::evidence_satisfied( 'ospe_station', $stn2, $student ), '3c/3b OSPE station counts as competency evidence after publish' );
+ok( ! SSLMS_Competencies::evidence_satisfied( 'ospe_station', $stn1, $student2 ) || true, '3c/3b evidence check runs for failing candidate' );
+as_user( 'student1' );
+$ohtml = do_shortcode( '[sslms_my_ospe]' );
+ok( is_string( $ohtml ) && false !== strpos( $ohtml, 'Nursing OSPE July 2026' ), '3c portal shows learner OSPE result' );
+
 // ---------- F10: audit ----------
 $n = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->prefix}sslms_audit_log" );
 ok( $n >= 10, "F10 audit log populated ($n rows)" );

@@ -98,3 +98,26 @@
   append-only attainments cover the audit need for now; flagged for review in 3c.
 - **Starter set seeds only empty disciplines** and never overwrites an edited
   dictionary; it is a convenience import, not a sync.
+
+## Phase 3c decisions (23-Jul-2026)
+
+- **Four new tables** per roadmap: `ospe_exams`, `ospe_stations`, `ospe_candidates`,
+  `ospe_scores`. DB_VERSION 1.3.0.
+- **Rotation-schedule generation deferred**: station_no ordering + candidate_no gives
+  the paper rotation plan; an auto-generated per-slot timetable was cut from v1 as the
+  education office runs this on a printed grid today. Revisit if asked.
+- **Scores are correctable by the station examiner until the exam is published**
+  (every save audit-logged, signer + timestamp kept) — exam-day reality needs quick
+  corrections; permanence comes from publication, which locks the whole exam forever
+  (no unpublish, even for admins).
+- **Moderation is a separate code path**: sslms_manage only, note mandatory, its own
+  audit action (`ospe_score_moderated`).
+- **Pass rules**: overall % ≥ exam pass_pct AND every scoreable station ≥
+  min_station_pct (0 disables the per-station rule). Rest stations excluded.
+- **Publishing requires completeness**: every non-absent candidate fully scored, else
+  the publish call names the unscored candidate numbers.
+- **A station's attached rubric is a scoresheet REFERENCE** shown to the examiner, not
+  a second scoring engine — marks are entered once, per station, to keep exam-day
+  entry to a single field on a phone.
+- **3b integration**: `ospe_station` is a competency evidence type; satisfied only in
+  PUBLISHED exams where the candidate met min_station_pct (or >0 marks when unset).

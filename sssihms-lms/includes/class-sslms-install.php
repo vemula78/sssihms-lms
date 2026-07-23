@@ -5,7 +5,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class SSLMS_Install {
 
-	const DB_VERSION = '1.2.0';
+	const DB_VERSION = '1.3.0';
 
 	public static function activate(): void {
 		self::create_tables();
@@ -418,6 +418,63 @@ class SSLMS_Install {
   KEY user_id (user_id)
 ) $c;";
 
+		// Phase 3c — OSPE station-based practical exams (ROADMAP-PHASE3.md).
+		$sql[] = "CREATE TABLE {$p}ospe_exams (
+  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  title varchar(200) NOT NULL,
+  discipline varchar(100) NOT NULL DEFAULT '',
+  exam_date date DEFAULT NULL,
+  status varchar(20) NOT NULL DEFAULT 'draft',
+  pass_pct decimal(5,2) NOT NULL DEFAULT 50,
+  min_station_pct decimal(5,2) NOT NULL DEFAULT 0,
+  coordinator_id bigint(20) unsigned NOT NULL DEFAULT 0,
+  created_at datetime NOT NULL,
+  PRIMARY KEY  (id),
+  KEY status (status)
+) $c;";
+
+		$sql[] = "CREATE TABLE {$p}ospe_stations (
+  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  exam_id bigint(20) unsigned NOT NULL,
+  station_no int(11) NOT NULL DEFAULT 0,
+  title varchar(200) NOT NULL,
+  station_type varchar(20) NOT NULL DEFAULT 'procedure',
+  duration_min int(11) NOT NULL DEFAULT 5,
+  max_marks decimal(6,2) NOT NULL DEFAULT 10,
+  rubric_id bigint(20) unsigned NOT NULL DEFAULT 0,
+  examiner_id bigint(20) unsigned NOT NULL DEFAULT 0,
+  PRIMARY KEY  (id),
+  KEY exam_id (exam_id),
+  KEY examiner_id (examiner_id)
+) $c;";
+
+		$sql[] = "CREATE TABLE {$p}ospe_candidates (
+  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  exam_id bigint(20) unsigned NOT NULL,
+  user_id bigint(20) unsigned NOT NULL,
+  candidate_no int(11) NOT NULL DEFAULT 0,
+  status varchar(20) NOT NULL DEFAULT 'registered',
+  total_pct decimal(5,2) DEFAULT NULL,
+  outcome varchar(10) NOT NULL DEFAULT '',
+  moderation_note text,
+  PRIMARY KEY  (id),
+  UNIQUE KEY exam_user (exam_id,user_id),
+  KEY user_id (user_id)
+) $c;";
+
+		$sql[] = "CREATE TABLE {$p}ospe_scores (
+  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  station_id bigint(20) unsigned NOT NULL,
+  candidate_id bigint(20) unsigned NOT NULL,
+  marks decimal(6,2) NOT NULL DEFAULT 0,
+  note text,
+  signed_by bigint(20) unsigned NOT NULL,
+  signed_at datetime NOT NULL,
+  PRIMARY KEY  (id),
+  UNIQUE KEY station_candidate (station_id,candidate_id),
+  KEY candidate_id (candidate_id)
+) $c;";
+
 		foreach ( $sql as $statement ) {
 			dbDelta( $statement );
 		}
@@ -436,6 +493,7 @@ class SSLMS_Install {
 			'my_certificates' => array( 'My Certificates', '[sslms_my_certificates]' ),
 			'my_assessments' => array( 'My Assessments', '[sslms_my_assessments]' ),
 			'passport'       => array( 'Competency Passport', '[sslms_passport]' ),
+			'my_ospe'        => array( 'OSPE', '[sslms_my_ospe]' ),
 			'verify'       => array( 'Verify Certificate', '[sslms_verify_certificate]' ),
 		);
 	}
